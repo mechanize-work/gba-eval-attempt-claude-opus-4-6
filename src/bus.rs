@@ -477,13 +477,6 @@ impl Bus {
                 if size == 4 { self.debug_ewram_writes32 += 1; }
             }
         }
-        if region == 0x02 {
-            if size == 4 {
-                self.write_wait_cycles += 5;
-            } else if size >= 2 {
-                self.write_wait_cycles += 2;
-            }
-        }
     }
 
     pub fn write32(&mut self, addr: u32, val: u32) {
