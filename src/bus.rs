@@ -56,6 +56,7 @@ pub struct Bus {
     pub prev_exec_cycles: u32,
     pub prev_was_branch: bool,
     pub write_wait_cycles: u32,
+    pub waitcnt_written: bool,
 }
 
 impl Bus {
@@ -108,6 +109,7 @@ impl Bus {
             prev_exec_cycles: 0,
             prev_was_branch: true,
             write_wait_cycles: 0,
+            waitcnt_written: false,
         }
     }
 
@@ -202,6 +204,7 @@ impl Bus {
         self.ws_n = [5, 5, 5];
         self.ws_s = [3, 5, 9];
         self.prefetch = false;
+        self.waitcnt_written = false;
     }
 
     pub fn set_keys(&mut self, keys: u16) {
@@ -673,6 +676,7 @@ impl Bus {
                 self.waitcnt = val;
                 self.update_waitcnt();
                 self.prefetch = val & (1 << 14) != 0;
+                self.waitcnt_written = true;
                 #[cfg(feature = "native-test")]
                 eprintln!("  WAITCNT set to 0x{:04X}: ws0_n={} ws0_s={} ws1_n={} ws1_s={} ws2_n={} ws2_s={} prefetch={}",
                     val, self.ws_n[0], self.ws_s[0], self.ws_n[1], self.ws_s[1],
@@ -863,6 +867,7 @@ impl Bus {
     }
 
     pub fn pipeline_stall(&self, pc: u32, is_thumb: bool) -> u32 {
+        if !self.waitcnt_written { return 0; }
         let region = (pc >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
@@ -908,8 +913,25 @@ impl Bus {
         }
     }
 
-    pub fn branch_refill(&self, _target: u32, _is_thumb: bool) -> u32 {
-        0
+    pub fn branch_refill(&self, target: u32, is_thumb: bool) -> u32 {
+        if !self.waitcnt_written { return 0; }
+        let region = (target >> 24) & 0xF;
+        match region {
+            0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
+                if self.prefetch { return 0; }
+                let ws_idx = match region {
+                    0x08 | 0x09 => 0,
+                    0x0A | 0x0B => 1,
+                    _ => 2,
+                };
+                if is_thumb {
+                    self.ws_n[ws_idx] + self.ws_s[ws_idx] - 1
+                } else {
+                    self.ws_n[ws_idx] + self.ws_s[ws_idx] - 1
+                }
+            }
+            _ => 0,
+        }
     }
 
     pub fn code_fetch_extra(&self, pc: u32, is_thumb: bool, is_branch: bool) -> u32 {
