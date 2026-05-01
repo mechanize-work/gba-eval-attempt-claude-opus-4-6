@@ -243,17 +243,6 @@ impl Cpu {
 
         bus.halted = false;
 
-        #[cfg(feature = "native-test")]
-        {
-            let pc = if self.cpsr & T_FLAG != 0 {
-                self.regs[15].wrapping_sub(4)
-            } else {
-                self.regs[15].wrapping_sub(8)
-            };
-            eprintln!("  IRQ fired: PC=0x{:08X} ie=0x{:04X} if=0x{:04X} scanline={} frame={}",
-                pc, bus.ie, bus.if_, bus.current_scanline, bus.frame_count);
-        }
-
         let old_cpsr = self.cpsr;
         self.switch_mode(MODE_IRQ);
         self.spsr_irq = old_cpsr;
