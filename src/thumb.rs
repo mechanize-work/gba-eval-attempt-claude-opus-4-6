@@ -537,10 +537,9 @@ fn thumb_multiple_load_store(cpu: &mut Cpu, bus: &mut Bus, instr: u16) -> u32 {
                 cycles += 1;
             }
         }
-        cycles += 1;
     }
 
-    cycles
+    if cycles == 0 { 1 } else { cycles }
 }
 
 fn thumb_cond_branch(cpu: &mut Cpu, instr: u16) -> u32 {

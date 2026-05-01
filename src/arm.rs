@@ -555,7 +555,6 @@ fn arm_block_transfer(cpu: &mut Cpu, bus: &mut Bus, instr: u32) -> u32 {
                 cycles += 1;
             }
         }
-        cycles += 1;
     }
 
     if user_mode {
@@ -564,7 +563,7 @@ fn arm_block_transfer(cpu: &mut Cpu, bus: &mut Bus, instr: u32) -> u32 {
         cpu.regs[rn] = wb_val;
     }
 
-    cycles
+    if cycles == 0 { 1 } else { cycles }
 }
 
 fn arm_multiply(cpu: &mut Cpu, _bus: &mut Bus, instr: u32) -> u32 {
