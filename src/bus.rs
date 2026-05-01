@@ -185,15 +185,15 @@ impl Bus {
                 self.rom_data_accessed = true;
                 if size == 4 {
                     if sequential {
-                        self.data_wait_cycles += self.ws_s[ws_idx] + self.ws_s[ws_idx] + 1;
+                        self.data_wait_cycles += self.ws_s[ws_idx] + self.ws_s[ws_idx] - 1;
                     } else {
-                        self.data_wait_cycles += self.ws_n[ws_idx] + self.ws_s[ws_idx] + 1;
+                        self.data_wait_cycles += self.ws_n[ws_idx] + self.ws_s[ws_idx] - 1;
                     }
                 } else {
                     if sequential {
-                        self.data_wait_cycles += self.ws_s[ws_idx];
+                        self.data_wait_cycles += self.ws_s[ws_idx] - 1;
                     } else {
-                        self.data_wait_cycles += self.ws_n[ws_idx];
+                        self.data_wait_cycles += self.ws_n[ws_idx] - 1;
                     }
                 }
             }
