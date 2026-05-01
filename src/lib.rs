@@ -70,6 +70,47 @@ pub extern "C" fn emu_load_rom(len: i32) -> i32 {
         gba.bus.reset();
         gba.cpu.reset(&gba.bus);
 
+        // Run BIOS stub to completion
+        let mut bios_cycles = 0u32;
+        let mut steps = 0u32;
+        loop {
+            if gba.cpu.pipeline_valid {
+                let instr_addr = if gba.cpu.in_thumb() {
+                    gba.cpu.regs[15].wrapping_sub(4)
+                } else {
+                    gba.cpu.regs[15].wrapping_sub(8)
+                };
+                if instr_addr >= 0x0800_0000 {
+                    break;
+                }
+            }
+            let c = gba.cpu.step(&mut gba.bus);
+            gba.bus.tick(c, &mut gba.cpu);
+            bios_cycles += c;
+            steps += 1;
+            if steps > 10_000_000 {
+                break;
+            }
+        }
+
+        #[cfg(feature = "native-test")]
+        eprintln!("  BIOS stub completed in {} cycles ({} steps), scanline={}, frame={}",
+            bios_cycles, steps, gba.bus.current_scanline, gba.bus.frame_count);
+
+        // Advance timing to match oracle BIOS boot duration (~767,488 cycles)
+        // The oracle uses a full BIOS that takes ~1499 audio samples worth of
+        // cycles (1499 * 512 = 767,488). Our stub completes in ~28 cycles.
+        // Pad the difference so game starts at the same scanline position.
+        let target_boot_cycles = 767_488u32;
+        if bios_cycles < target_boot_cycles {
+            let remaining = target_boot_cycles - bios_cycles;
+            gba.bus.tick(remaining, &mut gba.cpu);
+        }
+
+        #[cfg(feature = "native-test")]
+        eprintln!("  After boot padding: scanline={}, frame={}, audio_samples={}",
+            gba.bus.current_scanline, gba.bus.frame_count, gba.bus.audio_samples_ready);
+
         1
     }
 }
