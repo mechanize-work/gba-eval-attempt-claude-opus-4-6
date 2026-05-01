@@ -156,11 +156,6 @@ impl Bus {
             }
             0x02 => {
                 self.last_rom_data_addr = 0xFFFF_FFFF;
-                if size == 4 {
-                    self.data_wait_cycles += 5;
-                } else {
-                    self.data_wait_cycles += 2;
-                }
             }
             _ => {
                 self.last_rom_data_addr = 0xFFFF_FFFF;
@@ -419,19 +414,7 @@ impl Bus {
         }
     }
 
-    fn add_write_wait(&mut self, addr: u32, size: u32) {
-        if self.fetching_code { return; }
-        let region = (addr >> 24) & 0xF;
-        match region {
-            0x02 => {
-                if size == 4 { self.write_wait_cycles += 5; }
-                else { self.write_wait_cycles += 2; }
-            }
-            0x05 | 0x06 => {
-                if size == 4 { self.write_wait_cycles += 1; }
-            }
-            _ => {}
-        }
+    fn add_write_wait(&mut self, _addr: u32, _size: u32) {
     }
 
     pub fn write32(&mut self, addr: u32, val: u32) {
