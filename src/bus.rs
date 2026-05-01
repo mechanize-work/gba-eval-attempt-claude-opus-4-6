@@ -50,6 +50,8 @@ pub struct Bus {
     pub ws_n: [u32; 3],
     pub ws_s: [u32; 3],
     pub data_wait_cycles: u32,
+    pub fetching_code: bool,
+    pub prefetch: bool,
 }
 
 impl Bus {
@@ -96,6 +98,8 @@ impl Bus {
             ws_n: [5, 5, 5],
             ws_s: [3, 5, 9],
             data_wait_cycles: 0,
+            fetching_code: false,
+            prefetch: false,
         }
     }
 
@@ -113,10 +117,42 @@ impl Bus {
         self.ws_s[2] = 1 + S2_LUT[(w >> 10) & 1];
     }
 
-    fn add_write_wait(&mut self, addr: u32, is_32bit: bool) {
+    fn add_data_wait(&mut self, addr: u32, size: u32) {
+        if self.fetching_code {
+            return;
+        }
         match (addr >> 24) & 0xF {
             0x02 => {
-                self.data_wait_cycles += if is_32bit { 4 } else { 2 };
+                self.data_wait_cycles += if size == 4 { 5 } else { 2 };
+            }
+            0x05 | 0x06 => {
+                if size == 4 {
+                    self.data_wait_cycles += 1;
+                }
+            }
+            0x08 | 0x09 => {
+                if size == 4 {
+                    self.data_wait_cycles += (self.ws_n[0] - 1) + (self.ws_s[0] - 1);
+                } else {
+                    self.data_wait_cycles += self.ws_n[0] - 1;
+                }
+            }
+            0x0A | 0x0B => {
+                if size == 4 {
+                    self.data_wait_cycles += (self.ws_n[1] - 1) + (self.ws_s[1] - 1);
+                } else {
+                    self.data_wait_cycles += self.ws_n[1] - 1;
+                }
+            }
+            0x0C | 0x0D => {
+                if size == 4 {
+                    self.data_wait_cycles += (self.ws_n[2] - 1) + (self.ws_s[2] - 1);
+                } else {
+                    self.data_wait_cycles += self.ws_n[2] - 1;
+                }
+            }
+            0x0E | 0x0F => {
+                self.data_wait_cycles += self.ws_n[2] - 1;
             }
             _ => {}
         }
@@ -159,6 +195,7 @@ impl Bus {
         self.bios_latch = 0;
         self.ws_n = [5, 5, 5];
         self.ws_s = [3, 5, 9];
+        self.prefetch = false;
     }
 
     pub fn set_keys(&mut self, keys: u16) {
@@ -166,6 +203,7 @@ impl Bus {
     }
 
     pub fn read8(&mut self, addr: u32) -> u8 {
+        self.add_data_wait(addr, 1);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x00 => {
@@ -199,6 +237,7 @@ impl Bus {
 
     pub fn read16(&mut self, addr: u32) -> u16 {
         let addr = addr & !1;
+        self.add_data_wait(addr, 2);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x00 => {
@@ -250,6 +289,7 @@ impl Bus {
 
     pub fn read32(&mut self, addr: u32) -> u32 {
         let addr = addr & !3;
+        self.add_data_wait(addr, 4);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x00 => {
@@ -304,6 +344,7 @@ impl Bus {
     }
 
     pub fn write8(&mut self, addr: u32, val: u8) {
+        self.add_data_wait(addr, 1);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x02 => self.ewram[(addr & 0x3FFFF) as usize] = val,
@@ -328,6 +369,7 @@ impl Bus {
 
     pub fn write16(&mut self, addr: u32, val: u16) {
         let addr = addr & !1;
+        self.add_data_wait(addr, 2);
         let region = (addr >> 24) & 0xFF;
         let bytes = val.to_le_bytes();
         match region {
@@ -367,6 +409,7 @@ impl Bus {
 
     pub fn write32(&mut self, addr: u32, val: u32) {
         let addr = addr & !3;
+        self.add_data_wait(addr, 4);
         let region = (addr >> 24) & 0xFF;
         let bytes = val.to_le_bytes();
         match region {
@@ -613,10 +656,11 @@ impl Bus {
             0x204 => {
                 self.waitcnt = val;
                 self.update_waitcnt();
+                self.prefetch = val & (1 << 14) != 0;
                 #[cfg(feature = "native-test")]
                 eprintln!("  WAITCNT set to 0x{:04X}: ws0_n={} ws0_s={} ws1_n={} ws1_s={} ws2_n={} ws2_s={} prefetch={}",
                     val, self.ws_n[0], self.ws_s[0], self.ws_n[1], self.ws_s[1],
-                    self.ws_n[2], self.ws_s[2], val & (1 << 14) != 0);
+                    self.ws_n[2], self.ws_s[2], self.prefetch);
             }
             0x208 => self.ime = val & 1 != 0,
 
@@ -791,6 +835,51 @@ impl Bus {
         }
 
         self.ppu.dispstat &= !0x2;
+    }
+
+    pub fn code_fetch_extra(&self, pc: u32, is_thumb: bool, is_branch: bool) -> u32 {
+        let region = (pc >> 24) & 0xF;
+        match region {
+            0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
+                let ws_idx = match region {
+                    0x08 | 0x09 => 0,
+                    0x0A | 0x0B => 1,
+                    _ => 2,
+                };
+                if self.prefetch && !is_branch {
+                    return 0;
+                }
+                if is_thumb {
+                    if is_branch {
+                        if self.prefetch {
+                            self.ws_n[ws_idx] - 1
+                        } else {
+                            2 * (self.ws_s[ws_idx] - 1) + (self.ws_n[ws_idx] - 1)
+                        }
+                    } else {
+                        self.ws_s[ws_idx] - 1
+                    }
+                } else {
+                    if is_branch {
+                        if self.prefetch {
+                            (self.ws_n[ws_idx] - 1) + (self.ws_s[ws_idx] - 1)
+                        } else {
+                            2 * ((self.ws_n[ws_idx] - 1) + (self.ws_s[ws_idx] - 1)) + (self.ws_n[ws_idx] - 1) + (self.ws_s[ws_idx] - 1)
+                        }
+                    } else {
+                        (self.ws_n[ws_idx] - 1) + (self.ws_s[ws_idx] - 1)
+                    }
+                }
+            }
+            0x02 => {
+                if is_thumb {
+                    if is_branch { 6 } else { 2 }
+                } else {
+                    if is_branch { 16 } else { 4 }
+                }
+            }
+            _ => 0,
+        }
     }
 
     pub fn bios_hle(&mut self, _swi_num: u32, _cpu: &mut Cpu) -> bool {

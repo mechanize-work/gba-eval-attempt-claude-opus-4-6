@@ -274,7 +274,10 @@ impl Cpu {
 
     pub fn execute_arm(&mut self, bus: &mut Bus) -> u32 {
         let instr_addr = self.regs[15].wrapping_sub(8);
+        bus.fetching_code = true;
         let instr = bus.read32(instr_addr);
+        bus.fetching_code = false;
+        bus.data_wait_cycles = 0;
 
         let cond = (instr >> 28) & 0xF;
         if !self.check_condition(cond) {
@@ -289,12 +292,15 @@ impl Cpu {
             self.regs[15] = self.regs[15].wrapping_add(4);
         }
 
-        cycles
+        cycles + bus.data_wait_cycles
     }
 
     pub fn execute_thumb(&mut self, bus: &mut Bus) -> u32 {
         let instr_addr = self.regs[15].wrapping_sub(4);
+        bus.fetching_code = true;
         let instr = bus.read16(instr_addr) as u16;
+        bus.fetching_code = false;
+        bus.data_wait_cycles = 0;
 
         self.pipeline_valid = true;
         let cycles = crate::thumb::execute(self, bus, instr);
@@ -303,7 +309,7 @@ impl Cpu {
             self.regs[15] = self.regs[15].wrapping_add(2);
         }
 
-        cycles
+        cycles + bus.data_wait_cycles
     }
 
     pub fn set_nz(&mut self, val: u32) {
