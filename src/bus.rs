@@ -50,6 +50,12 @@ pub struct Bus {
     pub debug_rom_reads: u64,
     #[cfg(feature = "native-test")]
     pub debug_iwram_reads: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_cumulative_rom_r: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_cumulative_ewram_w: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_cumulative_instrs: u64,
     pub current_scanline: u16,
     pub frame_count: u64,
 
@@ -122,6 +128,12 @@ impl Bus {
             debug_rom_reads: 0,
             #[cfg(feature = "native-test")]
             debug_iwram_reads: 0,
+            #[cfg(feature = "native-test")]
+            debug_cumulative_rom_r: 0,
+            #[cfg(feature = "native-test")]
+            debug_cumulative_ewram_w: 0,
+            #[cfg(feature = "native-test")]
+            debug_cumulative_instrs: 0,
             current_scanline: 0,
             frame_count: 0,
 
@@ -173,7 +185,7 @@ impl Bus {
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
                 #[cfg(feature = "native-test")]
-                { self.debug_rom_reads += 1; }
+                { self.debug_rom_reads += 1; self.debug_cumulative_rom_r += 1; }
                 let ws_idx = match region {
                     0x08 | 0x09 => 0,
                     0x0A | 0x0B => 1,
@@ -476,6 +488,7 @@ impl Bus {
         {
             if region == 0x02 {
                 self.debug_ewram_writes += 1;
+                self.debug_cumulative_ewram_w += 1;
                 if size == 4 { self.debug_ewram_writes32 += 1; }
             }
         }
@@ -627,7 +640,11 @@ impl Bus {
                 {
                     let old_blank = self.ppu.dispcnt & 0x80 != 0;
                     let new_blank = val & 0x80 != 0;
-                    if old_blank != new_blank || val != self.ppu.dispcnt {
+                    if old_blank && !new_blank {
+                        eprintln!("  DISPCNT forced_blank OFF: 0x{:04X} -> 0x{:04X} at scanline={} cycle={} frame={} total_cycles={} cumul_rom_r={} cumul_ewram_w={} cumul_instrs={}",
+                            self.ppu.dispcnt, val, self.current_scanline, self.scanline_cycles, self.frame_count,
+                            self.total_cycles, self.debug_cumulative_rom_r, self.debug_cumulative_ewram_w, self.debug_cumulative_instrs);
+                    } else if old_blank != new_blank || val != self.ppu.dispcnt {
                         eprintln!("  DISPCNT changed: 0x{:04X} -> 0x{:04X} at scanline={} cycle={} frame={} forced_blank: {} -> {}",
                             self.ppu.dispcnt, val, self.current_scanline, self.scanline_cycles, self.frame_count,
                             old_blank, new_blank);

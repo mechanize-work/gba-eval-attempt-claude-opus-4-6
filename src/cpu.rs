@@ -319,6 +319,7 @@ impl Cpu {
             bus.debug_stall_total += stall as u64;
             bus.debug_refill_total += refill as u64;
             bus.debug_instrs_frame += 1;
+            bus.debug_cumulative_instrs += 1;
         }
 
         total
@@ -362,6 +363,7 @@ impl Cpu {
             bus.debug_stall_total += stall as u64;
             bus.debug_refill_total += refill as u64;
             bus.debug_instrs_frame += 1;
+            bus.debug_cumulative_instrs += 1;
             if false {
                 eprintln!("  T @{:08X}: cyc={} dw={} fe={} rf={} st={} tot={} rda={}",
                     instr_addr, cycles, bus.data_wait_cycles, fetch_extra, refill, stall, total, bus.rom_data_accessed);
