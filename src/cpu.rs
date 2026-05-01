@@ -215,12 +215,12 @@ impl Cpu {
     }
 
     pub fn step(&mut self, bus: &mut Bus) -> u32 {
-        if self.check_irq(bus) {
-            return 3;
+        if !self.pipeline_valid {
+            self.flush_pipeline(bus);
         }
 
-        if !self.pipeline_valid {
-            self.fill_pipeline(bus);
+        if self.check_irq(bus) {
+            return 3;
         }
 
         if self.in_thumb() {
@@ -248,7 +248,7 @@ impl Cpu {
         self.spsr_irq = old_cpsr;
 
         let ret_addr = if old_cpsr & T_FLAG != 0 {
-            self.regs[15].wrapping_sub(2)
+            self.regs[15]
         } else {
             self.regs[15].wrapping_sub(4)
         };
@@ -262,51 +262,48 @@ impl Cpu {
         true
     }
 
-    pub fn fill_pipeline(&mut self, bus: &mut Bus) {
+    pub fn flush_pipeline(&mut self, bus: &mut Bus) {
+        let _ = bus;
         if self.in_thumb() {
-            self.pipeline[0] = bus.read16(self.regs[15]) as u32;
-            self.regs[15] = self.regs[15].wrapping_add(2);
-            self.pipeline[1] = bus.read16(self.regs[15]) as u32;
-            self.regs[15] = self.regs[15].wrapping_add(2);
+            self.regs[15] = self.regs[15].wrapping_add(4);
         } else {
-            self.pipeline[0] = bus.read32(self.regs[15]);
-            self.regs[15] = self.regs[15].wrapping_add(4);
-            self.pipeline[1] = bus.read32(self.regs[15]);
-            self.regs[15] = self.regs[15].wrapping_add(4);
+            self.regs[15] = self.regs[15].wrapping_add(8);
         }
         self.pipeline_valid = true;
     }
 
-    fn fetch_arm(&mut self, bus: &mut Bus) -> u32 {
-        let instr = self.pipeline[0];
-        self.pipeline[0] = self.pipeline[1];
-        self.pipeline[1] = bus.read32(self.regs[15]);
-        self.regs[15] = self.regs[15].wrapping_add(4);
-        instr
-    }
-
-    fn fetch_thumb(&mut self, bus: &mut Bus) -> u16 {
-        let instr = self.pipeline[0] as u16;
-        self.pipeline[0] = self.pipeline[1];
-        self.pipeline[1] = bus.read16(self.regs[15]) as u32;
-        self.regs[15] = self.regs[15].wrapping_add(2);
-        instr
-    }
-
     pub fn execute_arm(&mut self, bus: &mut Bus) -> u32 {
-        let instr = self.fetch_arm(bus);
-        let cond = (instr >> 28) & 0xF;
+        let instr_addr = self.regs[15].wrapping_sub(8);
+        let instr = bus.read32(instr_addr);
 
+        let cond = (instr >> 28) & 0xF;
         if !self.check_condition(cond) {
+            self.regs[15] = self.regs[15].wrapping_add(4);
             return 1;
         }
 
-        crate::arm::execute(self, bus, instr)
+        self.pipeline_valid = true;
+        let cycles = crate::arm::execute(self, bus, instr);
+
+        if self.pipeline_valid {
+            self.regs[15] = self.regs[15].wrapping_add(4);
+        }
+
+        cycles
     }
 
     pub fn execute_thumb(&mut self, bus: &mut Bus) -> u32 {
-        let instr = self.fetch_thumb(bus);
-        crate::thumb::execute(self, bus, instr)
+        let instr_addr = self.regs[15].wrapping_sub(4);
+        let instr = bus.read16(instr_addr) as u16;
+
+        self.pipeline_valid = true;
+        let cycles = crate::thumb::execute(self, bus, instr);
+
+        if self.pipeline_valid {
+            self.regs[15] = self.regs[15].wrapping_add(2);
+        }
+
+        cycles
     }
 
     pub fn set_nz(&mut self, val: u32) {

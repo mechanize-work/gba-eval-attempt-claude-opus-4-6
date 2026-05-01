@@ -292,7 +292,7 @@ fn thumb_hi_reg(cpu: &mut Cpu, _bus: &mut Bus, instr: u16) -> u32 {
 fn thumb_pc_rel_load(cpu: &mut Cpu, bus: &mut Bus, instr: u16) -> u32 {
     let rd = ((instr >> 8) & 7) as usize;
     let offset = ((instr & 0xFF) as u32) << 2;
-    let addr = (cpu.regs[15] & !2).wrapping_add(offset).wrapping_sub(2);
+    let addr = (cpu.regs[15] & !2).wrapping_add(offset);
     cpu.regs[rd] = bus.read32(addr & !3);
     3
 }
@@ -433,7 +433,7 @@ fn thumb_load_addr(cpu: &mut Cpu, instr: u16) -> u32 {
     if sp {
         cpu.regs[rd] = cpu.regs[13].wrapping_add(offset);
     } else {
-        cpu.regs[rd] = (cpu.regs[15] & !2).wrapping_sub(2).wrapping_add(offset);
+        cpu.regs[rd] = (cpu.regs[15] & !2).wrapping_add(offset);
     }
     1
 }
@@ -549,7 +549,7 @@ fn thumb_cond_branch(cpu: &mut Cpu, instr: u16) -> u32 {
         return 1;
     }
     let offset = (instr & 0xFF) as i8 as i32 as u32;
-    cpu.regs[15] = cpu.regs[15].wrapping_add(offset << 1).wrapping_sub(2);
+    cpu.regs[15] = cpu.regs[15].wrapping_add(offset << 1);
     cpu.pipeline_valid = false;
     3
 }
@@ -567,7 +567,7 @@ fn thumb_uncond_branch(cpu: &mut Cpu, instr: u16) -> u32 {
     } else {
         offset
     };
-    cpu.regs[15] = cpu.regs[15].wrapping_add(offset).wrapping_sub(2);
+    cpu.regs[15] = cpu.regs[15].wrapping_add(offset);
     cpu.pipeline_valid = false;
     3
 }
@@ -583,12 +583,12 @@ fn thumb_long_branch(cpu: &mut Cpu, instr: u16) -> u32 {
         } else {
             offset
         };
-        cpu.regs[14] = cpu.regs[15].wrapping_add(offset).wrapping_sub(2);
+        cpu.regs[14] = cpu.regs[15].wrapping_add(offset);
         1
     } else {
-        let next_pc = cpu.regs[15].wrapping_sub(2);
+        let next_pc = (cpu.regs[15].wrapping_sub(2)) | 1;
         cpu.regs[15] = cpu.regs[14].wrapping_add(offset << 1);
-        cpu.regs[14] = next_pc | 1;
+        cpu.regs[14] = next_pc;
         cpu.pipeline_valid = false;
         3
     }

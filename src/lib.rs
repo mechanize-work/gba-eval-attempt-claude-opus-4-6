@@ -1,7 +1,11 @@
-#![no_std]
+#![cfg_attr(not(feature = "native-test"), no_std)]
 
+#[cfg(not(feature = "native-test"))]
 extern crate alloc;
+#[cfg(feature = "native-test")]
+extern crate std as alloc;
 
+#[cfg(not(feature = "native-test"))]
 mod allocator;
 mod arm;
 mod apu;
@@ -19,11 +23,11 @@ use bus::Bus;
 use cpu::Cpu;
 
 pub struct Gba {
-    cpu: Cpu,
-    bus: Bus,
+    pub cpu: Cpu,
+    pub bus: Bus,
 }
 
-static mut GBA: *mut Gba = ptr::null_mut();
+pub static mut GBA: *mut Gba = ptr::null_mut();
 static mut ROM_BUFFER: *mut u8 = ptr::null_mut();
 static mut ROM_BUFFER_LEN: usize = 0;
 

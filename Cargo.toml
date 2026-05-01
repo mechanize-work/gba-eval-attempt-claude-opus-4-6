@@ -6,6 +6,13 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "test_gba"
+required-features = ["native-test"]
+
+[features]
+native-test = []
+
 [profile.release]
 opt-level = 3
 lto = true
