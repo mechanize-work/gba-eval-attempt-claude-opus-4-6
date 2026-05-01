@@ -604,6 +604,9 @@ impl Bus {
 
     pub fn io_write8(&mut self, addr: u32, val: u8) {
         if addr == 0x301 {
+            #[cfg(feature = "native-test")]
+            eprintln!("  HALT set via HALTCNT write at cycle={} scanline={} frame={} IE=0x{:04X} IF=0x{:04X} IME={} DISPSTAT=0x{:04X}",
+                self.total_cycles, self.current_scanline, self.frame_count, self.ie, self.if_, self.ime, self.ppu.dispstat);
             self.halted = true;
             return;
         }
@@ -879,6 +882,9 @@ impl Bus {
         }
 
         if self.halted && (self.ie & self.if_) != 0 {
+            #[cfg(feature = "native-test")]
+            eprintln!("  HALT cleared: IE=0x{:04X} IF=0x{:04X} match=0x{:04X} scanline={} cycle={} frame={}",
+                self.ie, self.if_, self.ie & self.if_, self.current_scanline, self.scanline_cycles, self.frame_count);
             self.halted = false;
         }
     }
