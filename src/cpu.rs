@@ -293,21 +293,18 @@ impl Cpu {
         self.pipeline_valid = true;
         let cycles = crate::arm::execute(self, bus, instr);
 
-        let (fetch_extra, refill) = if self.pipeline_valid {
+        let fetch_extra = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(4);
-            let fe = if bus.data_wait_cycles > 0 {
+            if bus.data_wait_cycles > 0 {
                 bus.code_fetch_extra(instr_addr, false, false)
             } else {
                 0
-            };
-            (fe, 0)
+            }
         } else {
-            let target = self.regs[15];
-            let rf = bus.branch_refill(target, self.in_thumb());
-            (0, rf)
+            0
         };
 
-        let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + refill + stall;
+        let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + stall;
         bus.prev_exec_cycles = total;
         bus.prev_was_branch = !self.pipeline_valid;
         total
@@ -326,21 +323,18 @@ impl Cpu {
         self.pipeline_valid = true;
         let cycles = crate::thumb::execute(self, bus, instr);
 
-        let (fetch_extra, refill) = if self.pipeline_valid {
+        let fetch_extra = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(2);
-            let fe = if bus.data_wait_cycles > 0 {
+            if bus.data_wait_cycles > 0 {
                 bus.code_fetch_extra(instr_addr, true, false)
             } else {
                 0
-            };
-            (fe, 0)
+            }
         } else {
-            let target = self.regs[15];
-            let rf = bus.branch_refill(target, self.in_thumb());
-            (0, rf)
+            0
         };
 
-        let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + refill + stall;
+        let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + stall;
         bus.prev_exec_cycles = total;
         bus.prev_was_branch = !self.pipeline_valid;
 
