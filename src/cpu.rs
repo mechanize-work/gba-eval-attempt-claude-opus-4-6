@@ -295,10 +295,6 @@ impl Cpu {
         self.pipeline_valid = true;
         let cycles = crate::arm::execute(self, bus, instr);
 
-        if bus.rom_data_accessed {
-            bus.pipeline_disrupted = true;
-        }
-
         let (fetch_extra, refill) = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(4);
             let fe = if bus.rom_data_accessed || bus.write_wait_cycles > 0 {
@@ -310,7 +306,6 @@ impl Cpu {
         } else {
             let target = self.regs[15];
             let rf = bus.branch_refill(target, self.in_thumb());
-            bus.pipeline_disrupted = false;
             (0, rf)
         };
 
@@ -343,10 +338,6 @@ impl Cpu {
         self.pipeline_valid = true;
         let cycles = crate::thumb::execute(self, bus, instr);
 
-        if bus.rom_data_accessed {
-            bus.pipeline_disrupted = true;
-        }
-
         let (fetch_extra, refill) = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(2);
             let fe = if bus.rom_data_accessed || bus.write_wait_cycles > 0 {
@@ -358,7 +349,6 @@ impl Cpu {
         } else {
             let target = self.regs[15];
             let rf = bus.branch_refill(target, self.in_thumb());
-            bus.pipeline_disrupted = false;
             (0, rf)
         };
 
@@ -372,6 +362,10 @@ impl Cpu {
             bus.debug_stall_total += stall as u64;
             bus.debug_refill_total += refill as u64;
             bus.debug_instrs_frame += 1;
+            if false {
+                eprintln!("  T @{:08X}: cyc={} dw={} fe={} rf={} st={} tot={} rda={}",
+                    instr_addr, cycles, bus.data_wait_cycles, fetch_extra, refill, stall, total, bus.rom_data_accessed);
+            }
         }
 
         total
