@@ -215,8 +215,11 @@ impl Bus {
                     self.debug_ewram_reads += 1;
                     if size == 4 { self.debug_ewram_reads32 += 1; }
                 }
-                // EWRAM: no additional data wait
-                // (baseline: timing compensated elsewhere)
+                if size == 4 {
+                    self.data_wait_cycles += 5;
+                } else {
+                    self.data_wait_cycles += 2;
+                }
                 self.last_rom_data_addr = 0xFFFF_FFFF;
             }
             0x03 => {
@@ -951,7 +954,6 @@ impl Bus {
     }
 
     pub fn pipeline_stall(&self, pc: u32, is_thumb: bool) -> u32 {
-        if !self.waitcnt_written { return 0; }
         let region = (pc >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
@@ -998,7 +1000,6 @@ impl Bus {
     }
 
     pub fn branch_refill(&self, target: u32, is_thumb: bool) -> u32 {
-        if !self.waitcnt_written { return 0; }
         let region = (target >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
