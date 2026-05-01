@@ -32,6 +32,10 @@ pub struct Bus {
     pub scanline_cycles: u32,
     #[cfg(feature = "native-test")]
     pub total_cycles: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_stall_total: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_refill_total: u64,
     pub current_scanline: u16,
     pub frame_count: u64,
 
@@ -85,6 +89,10 @@ impl Bus {
             scanline_cycles: 0,
             #[cfg(feature = "native-test")]
             total_cycles: 0,
+            #[cfg(feature = "native-test")]
+            debug_stall_total: 0,
+            #[cfg(feature = "native-test")]
+            debug_refill_total: 0,
             current_scanline: 0,
             frame_count: 0,
 
@@ -867,7 +875,6 @@ impl Bus {
     }
 
     pub fn pipeline_stall(&self, pc: u32, is_thumb: bool) -> u32 {
-        if !self.waitcnt_written { return 0; }
         let region = (pc >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
@@ -914,7 +921,6 @@ impl Bus {
     }
 
     pub fn branch_refill(&self, target: u32, is_thumb: bool) -> u32 {
-        if !self.waitcnt_written { return 0; }
         let region = (target >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {

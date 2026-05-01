@@ -312,6 +312,13 @@ impl Cpu {
         let total = base + stall;
         bus.prev_exec_cycles = base;
         bus.prev_was_branch = !self.pipeline_valid;
+
+        #[cfg(feature = "native-test")]
+        {
+            bus.debug_stall_total += stall as u64;
+            bus.debug_refill_total += refill as u64;
+        }
+
         total
     }
 
@@ -346,6 +353,12 @@ impl Cpu {
         let total = base + stall;
         bus.prev_exec_cycles = base;
         bus.prev_was_branch = !self.pipeline_valid;
+
+        #[cfg(feature = "native-test")]
+        {
+            bus.debug_stall_total += stall as u64;
+            bus.debug_refill_total += refill as u64;
+        }
 
         total
     }
