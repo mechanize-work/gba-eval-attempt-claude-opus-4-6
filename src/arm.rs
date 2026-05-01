@@ -486,19 +486,18 @@ fn arm_block_transfer(cpu: &mut Cpu, bus: &mut Bus, instr: u32) -> u32 {
         return 3;
     }
 
-    let start_addr = if up {
-        base
-    } else {
-        base.wrapping_sub(reg_count * 4)
-    };
-
     let wb_val = if up {
         base.wrapping_add(reg_count * 4)
     } else {
         base.wrapping_sub(reg_count * 4)
     };
 
-    let mut addr = start_addr;
+    let mut addr = match (pre, up) {
+        (false, true) => base,
+        (true, true) => base.wrapping_add(4),
+        (false, false) => base.wrapping_sub(reg_count * 4).wrapping_add(4),
+        (true, false) => base.wrapping_sub(reg_count * 4),
+    };
 
     let user_mode = s_bit && (!load || rlist & (1 << 15) == 0);
     let old_mode = cpu.cpsr & 0x1F;
@@ -512,10 +511,9 @@ fn arm_block_transfer(cpu: &mut Cpu, bus: &mut Bus, instr: u32) -> u32 {
     if load {
         for i in 0..16 {
             if rlist & (1 << i) != 0 {
-                let effective = if pre { addr.wrapping_add(4) } else { addr };
-                let val = bus.read32(effective & !3);
+                let val = bus.read32(addr & !3);
                 cpu.regs[i] = val;
-                addr = effective.wrapping_add(if pre { 0 } else { 4 });
+                addr = addr.wrapping_add(4);
                 if first {
                     first = false;
                     if writeback && !user_mode {
@@ -540,14 +538,13 @@ fn arm_block_transfer(cpu: &mut Cpu, bus: &mut Bus, instr: u32) -> u32 {
     } else {
         for i in 0..16 {
             if rlist & (1 << i) != 0 {
-                let effective = if pre { addr.wrapping_add(4) } else { addr };
                 let val = if i == 15 {
                     cpu.regs[15]
                 } else {
                     cpu.regs[i]
                 };
-                bus.write32(effective & !3, val);
-                addr = effective.wrapping_add(if pre { 0 } else { 4 });
+                bus.write32(addr & !3, val);
+                addr = addr.wrapping_add(4);
                 if first {
                     first = false;
                     if writeback && !user_mode {

@@ -42,7 +42,7 @@ pub struct Ppu {
 impl Ppu {
     pub fn new() -> Self {
         Self {
-            dispcnt: 0,
+            dispcnt: 0x0080,
             green_swap: 0,
             dispstat: 0,
             bgcnt: [0; 4],
@@ -645,9 +645,12 @@ fn palette_color(palette: &[u8], idx: usize) -> u32 {
 }
 
 fn color_from_rgb5(c: u16) -> u32 {
-    let r = ((c & 0x1F) as u32) * 255 / 31;
-    let g = (((c >> 5) & 0x1F) as u32) * 255 / 31;
-    let b = (((c >> 10) & 0x1F) as u32) * 255 / 31;
+    let r5 = (c & 0x1F) as u32;
+    let g5 = ((c >> 5) & 0x1F) as u32;
+    let b5 = ((c >> 10) & 0x1F) as u32;
+    let r = (r5 << 3) | (r5 >> 2);
+    let g = (g5 << 3) | (g5 >> 2);
+    let b = (b5 << 3) | (b5 >> 2);
     0xFF000000 | (b << 16) | (g << 8) | r
 }
 
