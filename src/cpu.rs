@@ -298,7 +298,7 @@ impl Cpu {
                 0
             }
         } else {
-            bus.code_fetch_extra(instr_addr, false, true)
+            0
         };
 
         cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra
@@ -324,7 +324,7 @@ impl Cpu {
                 0
             }
         } else {
-            bus.code_fetch_extra(instr_addr, true, true)
+            0
         };
 
         let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra;
@@ -332,25 +332,17 @@ impl Cpu {
         #[cfg(feature = "native-test")]
         {
             static mut TRACE_INSTRS: u32 = 0;
-            static mut TRACE_DATA_WAIT: u32 = 0;
-            static mut TRACE_FETCH_EXTRA: u32 = 0;
-            static mut TRACE_BASE_CYCLES: u32 = 0;
             static mut TRACE_TOTAL_CYCLES: u32 = 0;
-            static mut TRACE_ROM_DATA_READS: u32 = 0;
             unsafe {
                 TRACE_INSTRS += 1;
-                TRACE_BASE_CYCLES += cycles;
-                TRACE_DATA_WAIT += bus.data_wait_cycles;
-                TRACE_FETCH_EXTRA += fetch_extra;
                 TRACE_TOTAL_CYCLES += total;
-                if bus.data_wait_cycles > 0 {
-                    TRACE_ROM_DATA_READS += 1;
-                }
-                if TRACE_INSTRS % 100_000 == 0 && TRACE_INSTRS <= 500_000 {
-                    eprintln!("    TRACE [{} instrs]: base={} data_wait={} fetch_extra={} total={} rom_data_reads={} avg={:.2}",
-                        TRACE_INSTRS, TRACE_BASE_CYCLES, TRACE_DATA_WAIT, TRACE_FETCH_EXTRA,
-                        TRACE_TOTAL_CYCLES, TRACE_ROM_DATA_READS,
-                        TRACE_TOTAL_CYCLES as f64 / TRACE_INSTRS as f64);
+                if TRACE_INSTRS <= 20 || (TRACE_INSTRS <= 250_000 && TRACE_INSTRS % 50_000 == 0) {
+                    let c = if self.cpsr & crate::cpu::C_FLAG != 0 { 'C' } else { 'c' };
+                    let z = if self.cpsr & crate::cpu::Z_FLAG != 0 { 'Z' } else { 'z' };
+                    eprintln!("    ITRACE [{}]: PC=0x{:08X} cyc={} R0=0x{:08X} R1=0x{:08X} R2=0x{:08X} flags={}{} instr=0x{:04X}",
+                        TRACE_INSTRS, instr_addr, TRACE_TOTAL_CYCLES,
+                        self.regs[0], self.regs[1], self.regs[2],
+                        c, z, instr);
                 }
             }
         }

@@ -725,6 +725,11 @@ impl Bus {
 
 
 
+            #[cfg(feature = "native-test")]
+            eprintln!("  DMA ch{}: src=0x{:08X} dst=0x{:08X} count={} {}bit cycle={} scanline={} frame={}",
+                ch, src, dst, remaining, if is_32bit { 32 } else { 16 },
+                self.total_cycles, self.current_scanline, self.frame_count);
+
             while remaining > 0 {
                 if is_32bit {
                     let val = self.read32(src);
