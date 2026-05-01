@@ -523,7 +523,7 @@ fn arm_block_transfer(cpu: &mut Cpu, bus: &mut Bus, instr: u32) -> u32 {
                 cycles += 1;
             }
         }
-        cycles += 2;
+        cycles += 1;
 
         if rlist & (1 << 15) != 0 {
             if s_bit {

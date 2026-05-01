@@ -523,7 +523,7 @@ fn thumb_multiple_load_store(cpu: &mut Cpu, bus: &mut Bus, instr: u16) -> u32 {
         if rlist & (1 << rb) == 0 {
             cpu.regs[rb] = addr;
         }
-        cycles += 2;
+        cycles += 1;
     } else {
         let mut first = true;
         for i in 0..8 {
