@@ -283,17 +283,21 @@ impl Cpu {
         let cond = (instr >> 28) & 0xF;
         if !self.check_condition(cond) {
             self.regs[15] = self.regs[15].wrapping_add(4);
-            return 1 + bus.code_fetch_extra(instr_addr, false, false);
+            return 1;
         }
 
         self.pipeline_valid = true;
         let cycles = crate::arm::execute(self, bus, instr);
 
-        let fetch_extra = if !self.pipeline_valid {
-            bus.code_fetch_extra(self.regs[15], false, true)
-        } else {
+        let fetch_extra = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(4);
-            bus.code_fetch_extra(instr_addr, false, false)
+            if bus.data_wait_cycles > 0 {
+                bus.code_fetch_extra(instr_addr, false, false)
+            } else {
+                0
+            }
+        } else {
+            0
         };
 
         cycles + bus.data_wait_cycles + fetch_extra
@@ -310,11 +314,15 @@ impl Cpu {
         self.pipeline_valid = true;
         let cycles = crate::thumb::execute(self, bus, instr);
 
-        let fetch_extra = if !self.pipeline_valid {
-            bus.code_fetch_extra(self.regs[15], true, true)
-        } else {
+        let fetch_extra = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(2);
-            bus.code_fetch_extra(instr_addr, true, false)
+            if bus.data_wait_cycles > 0 {
+                bus.code_fetch_extra(instr_addr, true, false)
+            } else {
+                0
+            }
+        } else {
+            0
         };
 
         cycles + bus.data_wait_cycles + fetch_extra
