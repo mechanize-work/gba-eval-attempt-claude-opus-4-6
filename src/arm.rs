@@ -585,7 +585,7 @@ fn arm_multiply(cpu: &mut Cpu, _bus: &mut Bus, instr: u32) -> u32 {
     }
 
     let m = multiply_cycles(cpu.regs[rs]);
-    m + if acc { 1 } else { 0 }
+    1 + m + if acc { 1 } else { 0 }
 }
 
 fn arm_multiply_long(cpu: &mut Cpu, _bus: &mut Bus, instr: u32) -> u32 {
@@ -627,7 +627,7 @@ fn arm_multiply_long(cpu: &mut Cpu, _bus: &mut Bus, instr: u32) -> u32 {
     }
 
     let m = multiply_cycles(cpu.regs[rs]);
-    m + 1 + if acc { 1 } else { 0 }
+    1 + m + 1 + if acc { 1 } else { 0 }
 }
 
 fn arm_swp(cpu: &mut Cpu, bus: &mut Bus, instr: u32) -> u32 {

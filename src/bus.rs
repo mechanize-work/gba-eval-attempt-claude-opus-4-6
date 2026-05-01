@@ -113,15 +113,10 @@ impl Bus {
         self.ws_s[2] = 1 + S2_LUT[(w >> 10) & 1];
     }
 
-    fn add_mem_wait(&mut self, addr: u32, is_32bit: bool) {
+    fn add_write_wait(&mut self, addr: u32, is_32bit: bool) {
         match (addr >> 24) & 0xF {
-            0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
-                let ws_idx = (((addr >> 25) & 3) as usize).min(2);
-                if is_32bit {
-                    self.data_wait_cycles += self.ws_n[ws_idx] - 1 + self.ws_s[ws_idx] - 1;
-                } else {
-                    self.data_wait_cycles += self.ws_s[ws_idx] - 1;
-                }
+            0x02 => {
+                self.data_wait_cycles += if is_32bit { 4 } else { 2 };
             }
             _ => {}
         }
@@ -171,7 +166,6 @@ impl Bus {
     }
 
     pub fn read8(&mut self, addr: u32) -> u8 {
-        self.add_mem_wait(addr, false);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x00 => {
@@ -205,7 +199,6 @@ impl Bus {
 
     pub fn read16(&mut self, addr: u32) -> u16 {
         let addr = addr & !1;
-        self.add_mem_wait(addr, false);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x00 => {
@@ -257,7 +250,6 @@ impl Bus {
 
     pub fn read32(&mut self, addr: u32) -> u32 {
         let addr = addr & !3;
-        self.add_mem_wait(addr, true);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x00 => {
@@ -312,7 +304,6 @@ impl Bus {
     }
 
     pub fn write8(&mut self, addr: u32, val: u8) {
-        self.add_mem_wait(addr, false);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x02 => self.ewram[(addr & 0x3FFFF) as usize] = val,
@@ -337,7 +328,6 @@ impl Bus {
 
     pub fn write16(&mut self, addr: u32, val: u16) {
         let addr = addr & !1;
-        self.add_mem_wait(addr, false);
         let region = (addr >> 24) & 0xFF;
         let bytes = val.to_le_bytes();
         match region {
@@ -377,7 +367,6 @@ impl Bus {
 
     pub fn write32(&mut self, addr: u32, val: u32) {
         let addr = addr & !3;
-        self.add_mem_wait(addr, true);
         let region = (addr >> 24) & 0xFF;
         let bytes = val.to_le_bytes();
         match region {

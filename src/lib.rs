@@ -212,30 +212,7 @@ impl Gba {
             return advance;
         }
 
-        let pc = if self.cpu.in_thumb() {
-            self.cpu.regs[15].wrapping_sub(4)
-        } else {
-            self.cpu.regs[15].wrapping_sub(8)
-        };
-        let is_thumb = self.cpu.in_thumb();
-
-        self.bus.data_wait_cycles = 0;
-        let mut cycles = self.cpu.step(&mut self.bus);
-        let mut extra = self.bus.data_wait_cycles;
-        self.bus.data_wait_cycles = 0;
-
-        let region = (pc >> 24) & 0xF;
-        if region >= 0x08 && region <= 0x0D && self.bus.waitcnt & (1 << 14) != 0 {
-            let ws_idx = (((pc >> 25) & 3) as usize).min(2);
-            let fetch_cost = if is_thumb {
-                self.bus.ws_s[ws_idx] - 1
-            } else {
-                self.bus.ws_n[ws_idx] - 1 + self.bus.ws_s[ws_idx] - 1
-            };
-            extra = extra.saturating_sub(fetch_cost);
-        }
-
-        cycles += extra;
+        let cycles = self.cpu.step(&mut self.bus);
 
         self.bus.tick(cycles, &mut self.cpu);
         cycles

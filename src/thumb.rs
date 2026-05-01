@@ -224,7 +224,7 @@ fn thumb_alu(cpu: &mut Cpu, _bus: &mut Bus, instr: u16) -> u32 {
             let r = a.wrapping_mul(b);
             cpu.regs[rd] = r;
             cpu.set_nz(r);
-            cycles = multiply_cycles_thumb(a);
+            cycles = 1 + multiply_cycles_thumb(a);
         }
         0xE => { // BIC
             let r = a & !b;
