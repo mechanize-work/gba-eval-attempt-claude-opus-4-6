@@ -469,15 +469,14 @@ impl Bus {
     }
 
     fn add_write_wait(&mut self, addr: u32, size: u32) {
+        let region = (addr >> 24) & 0xF;
         #[cfg(feature = "native-test")]
         {
-            let region = (addr >> 24) & 0xF;
             if region == 0x02 {
                 self.debug_ewram_writes += 1;
                 if size == 4 { self.debug_ewram_writes32 += 1; }
             }
         }
-        let _ = (addr, size);
     }
 
     pub fn write32(&mut self, addr: u32, val: u32) {
@@ -927,7 +926,6 @@ impl Bus {
     }
 
     pub fn pipeline_stall(&self, pc: u32, is_thumb: bool) -> u32 {
-        if !self.waitcnt_written { return 0; }
         let region = (pc >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
@@ -974,7 +972,6 @@ impl Bus {
     }
 
     pub fn branch_refill(&self, target: u32, is_thumb: bool) -> u32 {
-        if !self.waitcnt_written { return 0; }
         let region = (target >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
