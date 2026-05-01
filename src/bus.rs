@@ -52,6 +52,7 @@ pub struct Bus {
     pub data_wait_cycles: u32,
     pub fetching_code: bool,
     pub prefetch: bool,
+    pub last_rom_data_addr: u32,
 }
 
 impl Bus {
@@ -100,6 +101,7 @@ impl Bus {
             data_wait_cycles: 0,
             fetching_code: false,
             prefetch: false,
+            last_rom_data_addr: 0xFFFF_FFFF,
         }
     }
 
@@ -129,13 +131,26 @@ impl Bus {
                     0x0A | 0x0B => 1,
                     _ => 2,
                 };
+                let sequential = addr == self.last_rom_data_addr.wrapping_add(4)
+                    || addr == self.last_rom_data_addr.wrapping_add(2);
+                self.last_rom_data_addr = addr;
                 if size == 4 {
-                    self.data_wait_cycles += self.ws_n[ws_idx] + self.ws_s[ws_idx] - 1;
+                    if sequential {
+                        self.data_wait_cycles += self.ws_s[ws_idx] + self.ws_s[ws_idx] - 1;
+                    } else {
+                        self.data_wait_cycles += self.ws_n[ws_idx] + self.ws_s[ws_idx] - 1;
+                    }
                 } else {
-                    self.data_wait_cycles += self.ws_n[ws_idx] - 1;
+                    if sequential {
+                        self.data_wait_cycles += self.ws_s[ws_idx] - 1;
+                    } else {
+                        self.data_wait_cycles += self.ws_n[ws_idx] - 1;
+                    }
                 }
             }
-            _ => {}
+            _ => {
+                self.last_rom_data_addr = 0xFFFF_FFFF;
+            }
         }
     }
 

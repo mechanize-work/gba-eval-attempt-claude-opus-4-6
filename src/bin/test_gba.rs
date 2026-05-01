@@ -35,12 +35,21 @@ fn main() {
 
         gba_emu::emu_load_rom(rom_data.len() as i32);
 
+        let mut all_audio: Vec<i16> = Vec::new();
+
         for f in 0..frames {
             if let Some(&keys) = key_events.get(&f) {
                 gba_emu::emu_set_keys(keys);
             }
 
             gba_emu::emu_run_frame();
+
+            let audio_buf = gba_emu::emu_audio_buffer();
+            let audio_samples = gba_emu::emu_audio_samples();
+            if audio_samples > 0 {
+                let audio_slice = std::slice::from_raw_parts(audio_buf, audio_samples as usize * 2);
+                all_audio.extend_from_slice(audio_slice);
+            }
 
             let fb = gba_emu::emu_framebuffer();
             let fb_slice = std::slice::from_raw_parts(fb, 240 * 160);
@@ -78,6 +87,37 @@ fn main() {
             }
             std::fs::write(&path, &ppm).unwrap();
         }
+
+        // Write audio WAV
+        let audio_path = format!("{}/audio.wav", output_dir);
+        let num_samples = all_audio.len() as u32;
+        let sample_rate = gba_emu::emu_audio_rate() as u32;
+        let channels = 2u16;
+        let bits_per_sample = 16u16;
+        let byte_rate = sample_rate * channels as u32 * (bits_per_sample / 8) as u32;
+        let block_align = channels * (bits_per_sample / 8);
+        let data_size = num_samples * 2;
+        let file_size = 36 + data_size;
+
+        let mut wav = Vec::with_capacity(44 + data_size as usize);
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&file_size.to_le_bytes());
+        wav.extend_from_slice(b"WAVE");
+        wav.extend_from_slice(b"fmt ");
+        wav.extend_from_slice(&16u32.to_le_bytes());
+        wav.extend_from_slice(&1u16.to_le_bytes()); // PCM
+        wav.extend_from_slice(&channels.to_le_bytes());
+        wav.extend_from_slice(&sample_rate.to_le_bytes());
+        wav.extend_from_slice(&byte_rate.to_le_bytes());
+        wav.extend_from_slice(&block_align.to_le_bytes());
+        wav.extend_from_slice(&bits_per_sample.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&data_size.to_le_bytes());
+        for &s in &all_audio {
+            wav.extend_from_slice(&s.to_le_bytes());
+        }
+        std::fs::write(&audio_path, &wav).unwrap();
+        eprintln!("Audio: {} stereo pairs @ {} Hz", num_samples / 2, sample_rate);
     }
 
     eprintln!("Wrote {} frames to {}", frames, output_dir);

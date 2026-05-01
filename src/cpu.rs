@@ -278,6 +278,7 @@ impl Cpu {
         let instr = bus.read32(instr_addr);
         bus.fetching_code = false;
         bus.data_wait_cycles = 0;
+        bus.last_rom_data_addr = 0xFFFF_FFFF;
 
         let cond = (instr >> 28) & 0xF;
         if !self.check_condition(cond) {
@@ -301,6 +302,7 @@ impl Cpu {
         let instr = bus.read16(instr_addr) as u16;
         bus.fetching_code = false;
         bus.data_wait_cycles = 0;
+        bus.last_rom_data_addr = 0xFFFF_FFFF;
 
         self.pipeline_valid = true;
         let cycles = crate::thumb::execute(self, bus, instr);
