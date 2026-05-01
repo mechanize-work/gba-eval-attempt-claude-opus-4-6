@@ -452,6 +452,10 @@ impl Bus {
     }
 
     pub fn io_write8(&mut self, addr: u32, val: u8) {
+        if addr == 0x301 {
+            self.halted = true;
+            return;
+        }
         let aligned = addr & !1;
         let old = self.io_read16(aligned);
         let new_val = if addr & 1 == 0 {
@@ -700,7 +704,7 @@ impl Bus {
             self.ppu.dispstat &= !0x2;
         }
 
-        if self.halted && self.ime && (self.ie & self.if_) != 0 {
+        if self.halted && (self.ie & self.if_) != 0 {
             self.halted = false;
         }
     }
@@ -747,6 +751,76 @@ impl Bus {
         }
 
         self.ppu.dispstat &= !0x2;
+    }
+
+    pub fn bios_hle(&mut self, swi_num: u32, cpu: &mut Cpu) -> bool {
+        match swi_num {
+            0x0B => { self.hle_cpu_set(cpu); true }
+            0x0C => { self.hle_cpu_fast_set(cpu); true }
+            _ => false,
+        }
+    }
+
+    fn hle_cpu_fast_set(&mut self, cpu: &mut Cpu) {
+        let src = cpu.regs[0];
+        let dst = cpu.regs[1];
+        let len_mode = cpu.regs[2];
+        let count = ((len_mode & 0x1FFFFF) + 7) & !7;
+        let fixed = len_mode & (1 << 24) != 0;
+
+        if fixed {
+            let val = self.read32(src);
+            for i in 0..count {
+                self.write32(dst.wrapping_add(i * 4), val);
+            }
+        } else {
+            for i in 0..count {
+                let val = self.read32(src.wrapping_add(i * 4));
+                self.write32(dst.wrapping_add(i * 4), val);
+            }
+        }
+        cpu.regs[0] = src.wrapping_add(if fixed { 0 } else { count * 4 });
+        cpu.regs[1] = dst.wrapping_add(count * 4);
+        cpu.regs[3] = self.read32(src.wrapping_add(if fixed { 0 } else { (count - 1) * 4 }));
+    }
+
+    fn hle_cpu_set(&mut self, cpu: &mut Cpu) {
+        let src = cpu.regs[0];
+        let dst = cpu.regs[1];
+        let len_mode = cpu.regs[2];
+        let count = len_mode & 0x1FFFFF;
+        let fixed = len_mode & (1 << 24) != 0;
+        let word_mode = len_mode & (1 << 26) != 0;
+
+        if word_mode {
+            if fixed {
+                let val = self.read32(src);
+                for i in 0..count {
+                    self.write32(dst.wrapping_add(i * 4), val);
+                }
+            } else {
+                for i in 0..count {
+                    let val = self.read32(src.wrapping_add(i * 4));
+                    self.write32(dst.wrapping_add(i * 4), val);
+                }
+            }
+            cpu.regs[0] = src.wrapping_add(if fixed { 0 } else { count * 4 });
+            cpu.regs[1] = dst.wrapping_add(count * 4);
+        } else {
+            if fixed {
+                let val = self.read16(src);
+                for i in 0..count {
+                    self.write16(dst.wrapping_add(i * 2), val);
+                }
+            } else {
+                for i in 0..count {
+                    let val = self.read16(src.wrapping_add(i * 2));
+                    self.write16(dst.wrapping_add(i * 2), val);
+                }
+            }
+            cpu.regs[0] = src.wrapping_add(if fixed { 0 } else { count * 2 });
+            cpu.regs[1] = dst.wrapping_add(count * 2);
+        }
     }
 
     fn generate_audio(&mut self, cycles: u32) {

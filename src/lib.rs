@@ -69,6 +69,7 @@ pub extern "C" fn emu_load_rom(len: i32) -> i32 {
         gba.cpu = Cpu::new();
         gba.bus.reset();
         gba.cpu.reset(&gba.bus);
+
         1
     }
 }

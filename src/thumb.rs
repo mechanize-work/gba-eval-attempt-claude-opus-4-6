@@ -556,6 +556,9 @@ fn thumb_cond_branch(cpu: &mut Cpu, instr: u16) -> u32 {
 
 fn thumb_swi(cpu: &mut Cpu, bus: &mut Bus, instr: u16) -> u32 {
     let comment = (instr & 0xFF) as u32;
+    if bus.bios_hle(comment, cpu) {
+        return 3;
+    }
     cpu.software_interrupt(comment, bus);
     3
 }

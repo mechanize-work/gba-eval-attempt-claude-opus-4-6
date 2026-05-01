@@ -653,9 +653,12 @@ fn arm_swp(cpu: &mut Cpu, bus: &mut Bus, instr: u32) -> u32 {
     4
 }
 
-fn arm_swi(cpu: &mut Cpu, _bus: &mut Bus, instr: u32) -> u32 {
+fn arm_swi(cpu: &mut Cpu, bus: &mut Bus, instr: u32) -> u32 {
     let comment = (instr >> 16) & 0xFF;
-    cpu.software_interrupt(comment, _bus);
+    if bus.bios_hle(comment, cpu) {
+        return 3;
+    }
+    cpu.software_interrupt(comment, bus);
     3
 }
 
