@@ -280,6 +280,7 @@ impl Cpu {
         bus.fetching_code = false;
         bus.data_wait_cycles = 0;
         bus.write_wait_cycles = 0;
+        bus.rom_data_accessed = false;
         bus.last_rom_data_addr = 0xFFFF_FFFF;
 
         let cond = (instr >> 28) & 0xF;
@@ -296,7 +297,7 @@ impl Cpu {
 
         let (fetch_extra, refill) = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(4);
-            let fe = if bus.data_wait_cycles > 0 || bus.write_wait_cycles > 0 {
+            let fe = if bus.rom_data_accessed {
                 bus.code_fetch_extra(instr_addr, false, false)
             } else {
                 0
@@ -330,6 +331,7 @@ impl Cpu {
         bus.fetching_code = false;
         bus.data_wait_cycles = 0;
         bus.write_wait_cycles = 0;
+        bus.rom_data_accessed = false;
         bus.last_rom_data_addr = 0xFFFF_FFFF;
 
         self.pipeline_valid = true;
@@ -337,7 +339,7 @@ impl Cpu {
 
         let (fetch_extra, refill) = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(2);
-            let fe = if bus.data_wait_cycles > 0 || bus.write_wait_cycles > 0 {
+            let fe = if bus.rom_data_accessed {
                 bus.code_fetch_extra(instr_addr, true, false)
             } else {
                 0
@@ -358,6 +360,7 @@ impl Cpu {
         {
             bus.debug_stall_total += stall as u64;
             bus.debug_refill_total += refill as u64;
+            bus.debug_instrs_frame += 1;
         }
 
         total

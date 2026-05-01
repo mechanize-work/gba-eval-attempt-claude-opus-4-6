@@ -36,6 +36,16 @@ pub struct Bus {
     pub debug_stall_total: u64,
     #[cfg(feature = "native-test")]
     pub debug_refill_total: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_instrs_frame: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_ewram_reads: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_ewram_writes: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_rom_reads: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_iwram_reads: u64,
     pub current_scanline: u16,
     pub frame_count: u64,
 
@@ -61,6 +71,7 @@ pub struct Bus {
     pub prev_was_branch: bool,
     pub write_wait_cycles: u32,
     pub waitcnt_written: bool,
+    pub rom_data_accessed: bool,
 }
 
 impl Bus {
@@ -93,6 +104,16 @@ impl Bus {
             debug_stall_total: 0,
             #[cfg(feature = "native-test")]
             debug_refill_total: 0,
+            #[cfg(feature = "native-test")]
+            debug_instrs_frame: 0,
+            #[cfg(feature = "native-test")]
+            debug_ewram_reads: 0,
+            #[cfg(feature = "native-test")]
+            debug_ewram_writes: 0,
+            #[cfg(feature = "native-test")]
+            debug_rom_reads: 0,
+            #[cfg(feature = "native-test")]
+            debug_iwram_reads: 0,
             current_scanline: 0,
             frame_count: 0,
 
@@ -118,6 +139,7 @@ impl Bus {
             prev_was_branch: true,
             write_wait_cycles: 0,
             waitcnt_written: false,
+            rom_data_accessed: false,
         }
     }
 
@@ -142,6 +164,8 @@ impl Bus {
         let region = (addr >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
+                #[cfg(feature = "native-test")]
+                { self.debug_rom_reads += 1; }
                 let ws_idx = match region {
                     0x08 | 0x09 => 0,
                     0x0A | 0x0B => 1,
@@ -150,6 +174,7 @@ impl Bus {
                 let sequential = addr == self.last_rom_data_addr.wrapping_add(4)
                     || addr == self.last_rom_data_addr.wrapping_add(2);
                 self.last_rom_data_addr = addr;
+                self.rom_data_accessed = true;
                 if size == 4 {
                     if sequential {
                         self.data_wait_cycles += self.ws_s[ws_idx] + self.ws_s[ws_idx] - 1;
@@ -165,6 +190,18 @@ impl Bus {
                 }
             }
             0x02 => {
+                #[cfg(feature = "native-test")]
+                { self.debug_ewram_reads += 1; }
+                self.last_rom_data_addr = 0xFFFF_FFFF;
+                if size == 4 {
+                    self.data_wait_cycles += 2;
+                } else {
+                    self.data_wait_cycles += 1;
+                }
+            }
+            0x03 => {
+                #[cfg(feature = "native-test")]
+                { self.debug_iwram_reads += 1; }
                 self.last_rom_data_addr = 0xFFFF_FFFF;
             }
             _ => {
@@ -425,7 +462,13 @@ impl Bus {
         }
     }
 
-    fn add_write_wait(&mut self, _addr: u32, _size: u32) {
+    fn add_write_wait(&mut self, addr: u32, _size: u32) {
+        #[cfg(feature = "native-test")]
+        {
+            let region = (addr >> 24) & 0xF;
+            if region == 0x02 { self.debug_ewram_writes += 1; }
+        }
+        let _ = addr;
     }
 
     pub fn write32(&mut self, addr: u32, val: u32) {

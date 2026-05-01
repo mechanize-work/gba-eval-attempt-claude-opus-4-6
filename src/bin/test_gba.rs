@@ -56,16 +56,22 @@ fn main() {
 
             let gba = &*gba_emu::GBA;
             let pc = gba.cpu.regs[15];
-            if f < 5 || f == frames - 1 || (f > 0 && f % 50 == 0) {
+            {
                 let dispcnt = gba.bus.ppu.dispcnt;
                 let mode = dispcnt & 7;
                 let bg_en = (dispcnt >> 8) & 0x1F;
-                eprintln!("Frame {}: PC=0x{:08X} CPSR=0x{:08X} DISPCNT=0x{:04X} mode={} bg={:04b} SP=0x{:08X} LR=0x{:08X} halted={} IME={} IE=0x{:04X} IF=0x{:04X} cycles={} stall={} refill={}",
-                    f, pc, gba.cpu.cpsr, dispcnt, mode, bg_en,
-                    gba.cpu.regs[13], gba.cpu.regs[14],
-                    gba.bus.halted, gba.bus.ime, gba.bus.ie, gba.bus.if_,
-                    gba.bus.total_cycles, gba.bus.debug_stall_total, gba.bus.debug_refill_total);
+                eprintln!("Frame {}: PC=0x{:08X} DISPCNT=0x{:04X} mode={} bg={:04b} cycles={} instrs={} ewram_r={} ewram_w={} rom_r={} iwram_r={}",
+                    f, pc, dispcnt, mode, bg_en,
+                    gba.bus.total_cycles, gba.bus.debug_instrs_frame,
+                    gba.bus.debug_ewram_reads, gba.bus.debug_ewram_writes,
+                    gba.bus.debug_rom_reads, gba.bus.debug_iwram_reads);
             }
+            let gba = &mut *gba_emu::GBA;
+            gba.bus.debug_instrs_frame = 0;
+            gba.bus.debug_ewram_reads = 0;
+            gba.bus.debug_ewram_writes = 0;
+            gba.bus.debug_rom_reads = 0;
+            gba.bus.debug_iwram_reads = 0;
 
             // Debug: check specific pixels
             if f == 1 {
