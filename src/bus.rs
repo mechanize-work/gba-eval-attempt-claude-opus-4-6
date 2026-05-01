@@ -557,9 +557,14 @@ impl Bus {
         match addr {
             0x000 => {
                 #[cfg(feature = "native-test")]
-                if val != self.ppu.dispcnt {
-                    eprintln!("  DISPCNT changed: 0x{:04X} -> 0x{:04X} at scanline={} cycle={} frame={}",
-                        self.ppu.dispcnt, val, self.current_scanline, self.scanline_cycles, self.frame_count);
+                {
+                    let old_blank = self.ppu.dispcnt & 0x80 != 0;
+                    let new_blank = val & 0x80 != 0;
+                    if old_blank != new_blank || val != self.ppu.dispcnt {
+                        eprintln!("  DISPCNT changed: 0x{:04X} -> 0x{:04X} at scanline={} cycle={} frame={} forced_blank: {} -> {}",
+                            self.ppu.dispcnt, val, self.current_scanline, self.scanline_cycles, self.frame_count,
+                            old_blank, new_blank);
+                    }
                 }
                 self.ppu.dispcnt = val;
             }

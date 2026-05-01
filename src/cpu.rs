@@ -327,7 +327,9 @@ impl Cpu {
             0
         };
 
-        cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra
+        let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra;
+
+        total
     }
 
     pub fn set_nz(&mut self, val: u32) {
