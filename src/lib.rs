@@ -97,7 +97,7 @@ pub extern "C" fn emu_load_rom(len: i32) -> i32 {
         eprintln!("  BIOS stub completed in {} cycles ({} steps), scanline={}, frame={}",
             bios_cycles, steps, gba.bus.current_scanline, gba.bus.frame_count);
 
-        let target_boot_cycles = 600000u32;
+        let target_boot_cycles = 300000u32;
         if bios_cycles < target_boot_cycles {
             let remaining = target_boot_cycles - bios_cycles;
             gba.bus.tick(remaining, &mut gba.cpu);
