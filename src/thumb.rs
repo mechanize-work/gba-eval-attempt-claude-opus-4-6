@@ -42,7 +42,7 @@ pub fn execute(cpu: &mut Cpu, bus: &mut Bus, instr: u16) -> u32 {
         0b11000 | 0b11001 => thumb_multiple_load_store(cpu, bus, instr),
         0b11010 | 0b11011 => {
             if (instr >> 8) & 0xF == 0xF {
-                thumb_swi(cpu, instr)
+                thumb_swi(cpu, bus, instr)
             } else {
                 thumb_cond_branch(cpu, instr)
             }
@@ -554,9 +554,9 @@ fn thumb_cond_branch(cpu: &mut Cpu, instr: u16) -> u32 {
     3
 }
 
-fn thumb_swi(cpu: &mut Cpu, instr: u16) -> u32 {
+fn thumb_swi(cpu: &mut Cpu, bus: &mut Bus, instr: u16) -> u32 {
     let comment = (instr & 0xFF) as u32;
-    cpu.software_interrupt(comment);
+    cpu.software_interrupt(comment, bus);
     3
 }
 

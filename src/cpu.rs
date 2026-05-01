@@ -468,7 +468,12 @@ impl Cpu {
         }
     }
 
-    pub fn software_interrupt(&mut self, _comment: u32) {
+    pub fn software_interrupt(&mut self, _comment: u32, _bus: &Bus) {
+        #[cfg(feature = "native-test")]
+        eprintln!("  SWI 0x{:02X} from PC=0x{:08X} at cycle={} scanline={} frame={}",
+            _comment,
+            self.regs[15].wrapping_sub(if self.cpsr & T_FLAG != 0 { 4 } else { 8 }),
+            _bus.total_cycles, _bus.current_scanline, _bus.frame_count);
         let old_cpsr = self.cpsr;
         self.switch_mode(MODE_SVC);
         self.spsr_svc = old_cpsr;

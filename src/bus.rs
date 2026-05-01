@@ -30,6 +30,8 @@ pub struct Bus {
 
     pub cycles: u32,
     pub scanline_cycles: u32,
+    #[cfg(feature = "native-test")]
+    pub total_cycles: u64,
     pub current_scanline: u16,
     pub frame_count: u64,
 
@@ -70,6 +72,8 @@ impl Bus {
 
             cycles: 0,
             scanline_cycles: 0,
+            #[cfg(feature = "native-test")]
+            total_cycles: 0,
             current_scanline: 0,
             frame_count: 0,
 
@@ -112,6 +116,8 @@ impl Bus {
         self.if_ = 0;
         self.cycles = 0;
         self.scanline_cycles = 0;
+        #[cfg(feature = "native-test")]
+        { self.total_cycles = 0; }
         self.current_scanline = 0;
         self.frame_count = 0;
         self.audio_samples_ready = 0;
@@ -458,7 +464,14 @@ impl Bus {
 
     pub fn io_write16(&mut self, addr: u32, val: u16) {
         match addr {
-            0x000 => self.ppu.dispcnt = val,
+            0x000 => {
+                #[cfg(feature = "native-test")]
+                if val != self.ppu.dispcnt {
+                    eprintln!("  DISPCNT changed: 0x{:04X} -> 0x{:04X} at scanline={} cycle={} frame={}",
+                        self.ppu.dispcnt, val, self.current_scanline, self.scanline_cycles, self.frame_count);
+                }
+                self.ppu.dispcnt = val;
+            }
             0x002 => self.ppu.green_swap = val,
             0x004 => {
                 self.ppu.dispstat = (self.ppu.dispstat & 0x7) | (val & !0x7);
@@ -666,6 +679,8 @@ impl Bus {
 
         self.generate_audio(cycles);
 
+        #[cfg(feature = "native-test")]
+        { self.total_cycles += cycles as u64; }
         self.scanline_cycles += cycles;
         while self.scanline_cycles >= 1232 {
             self.scanline_cycles -= 1232;

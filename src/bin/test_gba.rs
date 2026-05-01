@@ -51,10 +51,11 @@ fn main() {
                 let dispcnt = gba.bus.ppu.dispcnt;
                 let mode = dispcnt & 7;
                 let bg_en = (dispcnt >> 8) & 0x1F;
-                eprintln!("Frame {}: PC=0x{:08X} CPSR=0x{:08X} DISPCNT=0x{:04X} mode={} bg={:04b} SP=0x{:08X} LR=0x{:08X} halted={} IME={} IE=0x{:04X} IF=0x{:04X}",
+                eprintln!("Frame {}: PC=0x{:08X} CPSR=0x{:08X} DISPCNT=0x{:04X} mode={} bg={:04b} SP=0x{:08X} LR=0x{:08X} halted={} IME={} IE=0x{:04X} IF=0x{:04X} cycles={}",
                     f, pc, gba.cpu.cpsr, dispcnt, mode, bg_en,
                     gba.cpu.regs[13], gba.cpu.regs[14],
-                    gba.bus.halted, gba.bus.ime, gba.bus.ie, gba.bus.if_);
+                    gba.bus.halted, gba.bus.ime, gba.bus.ie, gba.bus.if_,
+                    gba.bus.total_cycles);
             }
 
             let path = format!("{}/frame_{:05}.ppm", output_dir, f);
