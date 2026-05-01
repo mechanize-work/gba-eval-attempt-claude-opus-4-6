@@ -297,7 +297,7 @@ impl Cpu {
 
         let (fetch_extra, refill) = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(4);
-            let fe = if bus.rom_data_accessed {
+            let fe = if bus.rom_data_accessed || bus.write_wait_cycles > 0 {
                 bus.code_fetch_extra(instr_addr, false, false)
             } else {
                 0
@@ -339,7 +339,7 @@ impl Cpu {
 
         let (fetch_extra, refill) = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(2);
-            let fe = if bus.rom_data_accessed {
+            let fe = if bus.rom_data_accessed || bus.write_wait_cycles > 0 {
                 bus.code_fetch_extra(instr_addr, true, false)
             } else {
                 0

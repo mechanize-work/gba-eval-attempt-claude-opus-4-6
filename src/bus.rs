@@ -43,6 +43,10 @@ pub struct Bus {
     #[cfg(feature = "native-test")]
     pub debug_ewram_writes: u64,
     #[cfg(feature = "native-test")]
+    pub debug_ewram_reads32: u64,
+    #[cfg(feature = "native-test")]
+    pub debug_ewram_writes32: u64,
+    #[cfg(feature = "native-test")]
     pub debug_rom_reads: u64,
     #[cfg(feature = "native-test")]
     pub debug_iwram_reads: u64,
@@ -110,6 +114,10 @@ impl Bus {
             debug_ewram_reads: 0,
             #[cfg(feature = "native-test")]
             debug_ewram_writes: 0,
+            #[cfg(feature = "native-test")]
+            debug_ewram_reads32: 0,
+            #[cfg(feature = "native-test")]
+            debug_ewram_writes32: 0,
             #[cfg(feature = "native-test")]
             debug_rom_reads: 0,
             #[cfg(feature = "native-test")]
@@ -191,13 +199,11 @@ impl Bus {
             }
             0x02 => {
                 #[cfg(feature = "native-test")]
-                { self.debug_ewram_reads += 1; }
-                self.last_rom_data_addr = 0xFFFF_FFFF;
-                if size == 4 {
-                    self.data_wait_cycles += 2;
-                } else {
-                    self.data_wait_cycles += 1;
+                {
+                    self.debug_ewram_reads += 1;
+                    if size == 4 { self.debug_ewram_reads32 += 1; }
                 }
+                self.last_rom_data_addr = 0xFFFF_FFFF;
             }
             0x03 => {
                 #[cfg(feature = "native-test")]
@@ -462,13 +468,20 @@ impl Bus {
         }
     }
 
-    fn add_write_wait(&mut self, addr: u32, _size: u32) {
+    fn add_write_wait(&mut self, addr: u32, size: u32) {
+        let region = (addr >> 24) & 0xF;
         #[cfg(feature = "native-test")]
-        {
-            let region = (addr >> 24) & 0xF;
-            if region == 0x02 { self.debug_ewram_writes += 1; }
+        if region == 0x02 {
+            self.debug_ewram_writes += 1;
+            if size == 4 { self.debug_ewram_writes32 += 1; }
         }
-        let _ = addr;
+        if region == 0x02 {
+            if size == 4 {
+                self.write_wait_cycles += 5;
+            } else {
+                self.write_wait_cycles += 2;
+            }
+        }
     }
 
     pub fn write32(&mut self, addr: u32, val: u32) {

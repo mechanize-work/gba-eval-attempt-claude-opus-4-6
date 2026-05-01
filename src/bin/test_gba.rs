@@ -60,16 +60,19 @@ fn main() {
                 let dispcnt = gba.bus.ppu.dispcnt;
                 let mode = dispcnt & 7;
                 let bg_en = (dispcnt >> 8) & 0x1F;
-                eprintln!("Frame {}: PC=0x{:08X} DISPCNT=0x{:04X} mode={} bg={:04b} cycles={} instrs={} ewram_r={} ewram_w={} rom_r={} iwram_r={}",
+                eprintln!("Frame {}: PC=0x{:08X} DISPCNT=0x{:04X} mode={} bg={:04b} cycles={} instrs={} ewram_r={}({}) ewram_w={}({}) rom_r={} iwram_r={}",
                     f, pc, dispcnt, mode, bg_en,
                     gba.bus.total_cycles, gba.bus.debug_instrs_frame,
-                    gba.bus.debug_ewram_reads, gba.bus.debug_ewram_writes,
+                    gba.bus.debug_ewram_reads, gba.bus.debug_ewram_reads32,
+                    gba.bus.debug_ewram_writes, gba.bus.debug_ewram_writes32,
                     gba.bus.debug_rom_reads, gba.bus.debug_iwram_reads);
             }
             let gba = &mut *gba_emu::GBA;
             gba.bus.debug_instrs_frame = 0;
             gba.bus.debug_ewram_reads = 0;
             gba.bus.debug_ewram_writes = 0;
+            gba.bus.debug_ewram_reads32 = 0;
+            gba.bus.debug_ewram_writes32 = 0;
             gba.bus.debug_rom_reads = 0;
             gba.bus.debug_iwram_reads = 0;
 
