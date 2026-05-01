@@ -46,6 +46,10 @@ pub struct Bus {
     pub bios_latch: u32,
 
     pub io_regs: Vec<u8>,
+
+    pub ws_n: [u32; 3],
+    pub ws_s: [u32; 3],
+    pub data_wait_cycles: u32,
 }
 
 impl Bus {
@@ -88,6 +92,38 @@ impl Bus {
             bios_latch: 0,
 
             io_regs: vec![0u8; 0x400],
+
+            ws_n: [5, 5, 5],
+            ws_s: [3, 5, 9],
+            data_wait_cycles: 0,
+        }
+    }
+
+    fn update_waitcnt(&mut self) {
+        const N_LUT: [u32; 4] = [4, 3, 2, 8];
+        const S0_LUT: [u32; 2] = [2, 1];
+        const S1_LUT: [u32; 2] = [4, 1];
+        const S2_LUT: [u32; 2] = [8, 1];
+        let w = self.waitcnt as usize;
+        self.ws_n[0] = 1 + N_LUT[(w >> 2) & 3];
+        self.ws_s[0] = 1 + S0_LUT[(w >> 4) & 1];
+        self.ws_n[1] = 1 + N_LUT[(w >> 5) & 3];
+        self.ws_s[1] = 1 + S1_LUT[(w >> 7) & 1];
+        self.ws_n[2] = 1 + N_LUT[(w >> 8) & 3];
+        self.ws_s[2] = 1 + S2_LUT[(w >> 10) & 1];
+    }
+
+    fn add_mem_wait(&mut self, addr: u32, is_32bit: bool) {
+        match (addr >> 24) & 0xF {
+            0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
+                let ws_idx = (((addr >> 25) & 3) as usize).min(2);
+                if is_32bit {
+                    self.data_wait_cycles += self.ws_n[ws_idx] - 1 + self.ws_s[ws_idx] - 1;
+                } else {
+                    self.data_wait_cycles += self.ws_s[ws_idx] - 1;
+                }
+            }
+            _ => {}
         }
     }
 
@@ -126,6 +162,8 @@ impl Bus {
         self.post_boot = 0;
         self.waitcnt = 0;
         self.bios_latch = 0;
+        self.ws_n = [5, 5, 5];
+        self.ws_s = [3, 5, 9];
     }
 
     pub fn set_keys(&mut self, keys: u16) {
@@ -133,6 +171,7 @@ impl Bus {
     }
 
     pub fn read8(&mut self, addr: u32) -> u8 {
+        self.add_mem_wait(addr, false);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x00 => {
@@ -166,6 +205,7 @@ impl Bus {
 
     pub fn read16(&mut self, addr: u32) -> u16 {
         let addr = addr & !1;
+        self.add_mem_wait(addr, false);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x00 => {
@@ -217,6 +257,7 @@ impl Bus {
 
     pub fn read32(&mut self, addr: u32) -> u32 {
         let addr = addr & !3;
+        self.add_mem_wait(addr, true);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x00 => {
@@ -271,6 +312,7 @@ impl Bus {
     }
 
     pub fn write8(&mut self, addr: u32, val: u8) {
+        self.add_mem_wait(addr, false);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x02 => self.ewram[(addr & 0x3FFFF) as usize] = val,
@@ -295,6 +337,7 @@ impl Bus {
 
     pub fn write16(&mut self, addr: u32, val: u16) {
         let addr = addr & !1;
+        self.add_mem_wait(addr, false);
         let region = (addr >> 24) & 0xFF;
         let bytes = val.to_le_bytes();
         match region {
@@ -334,6 +377,7 @@ impl Bus {
 
     pub fn write32(&mut self, addr: u32, val: u32) {
         let addr = addr & !3;
+        self.add_mem_wait(addr, true);
         let region = (addr >> 24) & 0xFF;
         let bytes = val.to_le_bytes();
         match region {
@@ -577,7 +621,14 @@ impl Bus {
 
             0x200 => self.ie = val,
             0x202 => self.if_ &= !val,
-            0x204 => self.waitcnt = val,
+            0x204 => {
+                self.waitcnt = val;
+                self.update_waitcnt();
+                #[cfg(feature = "native-test")]
+                eprintln!("  WAITCNT set to 0x{:04X}: ws0_n={} ws0_s={} ws1_n={} ws1_s={} ws2_n={} ws2_s={} prefetch={}",
+                    val, self.ws_n[0], self.ws_s[0], self.ws_n[1], self.ws_s[1],
+                    self.ws_n[2], self.ws_s[2], val & (1 << 14) != 0);
+            }
             0x208 => self.ime = val & 1 != 0,
 
             0x300 => {
