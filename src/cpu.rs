@@ -278,6 +278,7 @@ impl Cpu {
         let instr = bus.read32(instr_addr);
         bus.fetching_code = false;
         bus.data_wait_cycles = 0;
+        bus.write_wait_cycles = 0;
         bus.last_rom_data_addr = 0xFFFF_FFFF;
 
         let cond = (instr >> 28) & 0xF;
@@ -300,7 +301,7 @@ impl Cpu {
             0
         };
 
-        cycles + bus.data_wait_cycles + fetch_extra
+        cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra
     }
 
     pub fn execute_thumb(&mut self, bus: &mut Bus) -> u32 {
@@ -309,6 +310,7 @@ impl Cpu {
         let instr = bus.read16(instr_addr) as u16;
         bus.fetching_code = false;
         bus.data_wait_cycles = 0;
+        bus.write_wait_cycles = 0;
         bus.last_rom_data_addr = 0xFFFF_FFFF;
 
         self.pipeline_valid = true;
@@ -325,7 +327,7 @@ impl Cpu {
             0
         };
 
-        cycles + bus.data_wait_cycles + fetch_extra
+        cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra
     }
 
     pub fn set_nz(&mut self, val: u32) {
@@ -492,10 +494,16 @@ impl Cpu {
 
     pub fn software_interrupt(&mut self, _comment: u32, _bus: &Bus) {
         #[cfg(feature = "native-test")]
-        eprintln!("  SWI 0x{:02X} from PC=0x{:08X} at cycle={} scanline={} frame={}",
-            _comment,
-            self.regs[15].wrapping_sub(if self.cpsr & T_FLAG != 0 { 4 } else { 8 }),
-            _bus.total_cycles, _bus.current_scanline, _bus.frame_count);
+        {
+            eprintln!("  SWI 0x{:02X} from PC=0x{:08X} at cycle={} scanline={} frame={}",
+                _comment,
+                self.regs[15].wrapping_sub(if self.cpsr & T_FLAG != 0 { 4 } else { 8 }),
+                _bus.total_cycles, _bus.current_scanline, _bus.frame_count);
+            if _comment == 0x0B || _comment == 0x0C {
+                eprintln!("    r0=0x{:08X} r1=0x{:08X} r2=0x{:08X}",
+                    self.regs[0], self.regs[1], self.regs[2]);
+            }
+        }
         let old_cpsr = self.cpsr;
         self.switch_mode(MODE_SVC);
         self.spsr_svc = old_cpsr;

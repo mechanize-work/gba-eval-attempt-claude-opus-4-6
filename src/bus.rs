@@ -55,6 +55,7 @@ pub struct Bus {
     pub last_rom_data_addr: u32,
     pub prev_exec_cycles: u32,
     pub prev_was_branch: bool,
+    pub write_wait_cycles: u32,
 }
 
 impl Bus {
@@ -106,6 +107,7 @@ impl Bus {
             last_rom_data_addr: 0xFFFF_FFFF,
             prev_exec_cycles: 0,
             prev_was_branch: true,
+            write_wait_cycles: 0,
         }
     }
 
@@ -371,6 +373,7 @@ impl Bus {
     pub fn write16(&mut self, addr: u32, val: u16) {
         let addr = addr & !1;
         self.add_data_wait(addr, 2);
+        self.add_write_wait(addr, 2);
         let region = (addr >> 24) & 0xFF;
         let bytes = val.to_le_bytes();
         match region {
@@ -408,9 +411,13 @@ impl Bus {
         }
     }
 
+    fn add_write_wait(&mut self, _addr: u32, _size: u32) {
+    }
+
     pub fn write32(&mut self, addr: u32, val: u32) {
         let addr = addr & !3;
         self.add_data_wait(addr, 4);
+        self.add_write_wait(addr, 4);
         let region = (addr >> 24) & 0xFF;
         let bytes = val.to_le_bytes();
         match region {

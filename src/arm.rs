@@ -534,6 +534,7 @@ fn arm_block_transfer(cpu: &mut Cpu, bus: &mut Bus, instr: u32) -> u32 {
             }
             cpu.regs[15] &= if cpu.in_thumb() { !1 } else { !3 };
             cpu.pipeline_valid = false;
+            cycles += 2;
         }
     } else {
         for i in 0..16 {
