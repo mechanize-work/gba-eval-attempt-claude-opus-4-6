@@ -58,6 +58,14 @@ fn main() {
                     gba.bus.total_cycles);
             }
 
+            // Debug: check specific pixels
+            if f == 1 {
+                let p0 = fb_slice[0];  // Line 0, pixel 0
+                let p82 = fb_slice[82 * 240]; // Line 82, pixel 0
+                let p100 = fb_slice[100 * 240]; // Line 100, pixel 0
+                eprintln!("  DEBUG frame 1 pixels: line0=0x{:08X} line82=0x{:08X} line100=0x{:08X}", p0, p82, p100);
+            }
+
             let path = format!("{}/frame_{:05}.ppm", output_dir, f);
             let mut ppm = format!("P6\n240 160\n255\n").into_bytes();
             for &pixel in fb_slice {

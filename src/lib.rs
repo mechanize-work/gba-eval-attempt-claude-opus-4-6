@@ -98,9 +98,6 @@ pub extern "C" fn emu_load_rom(len: i32) -> i32 {
             bios_cycles, steps, gba.bus.current_scanline, gba.bus.frame_count);
 
         // Advance timing to match oracle BIOS boot duration (768,000 cycles)
-        // The oracle produces 2048 audio samples for the first frame and 9729
-        // total for 15 frames, proving boot = 768,000 cycles and each run_frame
-        // is exactly 280,896 cycles (228 scanlines × 1232 cycles).
         let target_boot_cycles = 768_000u32;
         if bios_cycles < target_boot_cycles {
             let remaining = target_boot_cycles - bios_cycles;

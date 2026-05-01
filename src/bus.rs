@@ -753,12 +753,8 @@ impl Bus {
         self.ppu.dispstat &= !0x2;
     }
 
-    pub fn bios_hle(&mut self, swi_num: u32, cpu: &mut Cpu) -> bool {
-        match swi_num {
-            0x0B => { self.hle_cpu_set(cpu); true }
-            0x0C => { self.hle_cpu_fast_set(cpu); true }
-            _ => false,
-        }
+    pub fn bios_hle(&mut self, _swi_num: u32, _cpu: &mut Cpu) -> bool {
+        false
     }
 
     fn hle_cpu_fast_set(&mut self, cpu: &mut Cpu) {
