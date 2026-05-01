@@ -318,6 +318,7 @@ impl Cpu {
         {
             bus.debug_stall_total += stall as u64;
             bus.debug_refill_total += refill as u64;
+            bus.debug_instrs_frame += 1;
         }
 
         total
