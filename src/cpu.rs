@@ -344,24 +344,6 @@ impl Cpu {
         bus.prev_exec_cycles = total;
         bus.prev_was_branch = !self.pipeline_valid;
 
-        #[cfg(feature = "native-test")]
-        {
-            static mut TRACE_INSTRS: u32 = 0;
-            static mut TRACE_TOTAL_CYCLES: u32 = 0;
-            unsafe {
-                TRACE_INSTRS += 1;
-                TRACE_TOTAL_CYCLES += total;
-                if TRACE_INSTRS <= 20 || (TRACE_INSTRS <= 2_000_000 && TRACE_INSTRS % 100_000 == 0) {
-                    let c = if self.cpsr & crate::cpu::C_FLAG != 0 { 'C' } else { 'c' };
-                    let z = if self.cpsr & crate::cpu::Z_FLAG != 0 { 'Z' } else { 'z' };
-                    eprintln!("    ITRACE [{}]: PC=0x{:08X} cyc={} R0=0x{:08X} R1=0x{:08X} R2=0x{:08X} flags={}{} instr=0x{:04X}",
-                        TRACE_INSTRS, instr_addr, TRACE_TOTAL_CYCLES,
-                        self.regs[0], self.regs[1], self.regs[2],
-                        c, z, instr);
-                }
-            }
-        }
-
         total
     }
 

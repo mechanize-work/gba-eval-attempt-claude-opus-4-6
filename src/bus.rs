@@ -886,36 +886,8 @@ impl Bus {
         }
     }
 
-    pub fn branch_refill(&self, target: u32, is_thumb: bool) -> u32 {
-        let region = (target >> 24) & 0xF;
-        match region {
-            0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
-                if self.prefetch { return 0; }
-                let ws_idx = match region {
-                    0x08 | 0x09 => 0,
-                    0x0A | 0x0B => 1,
-                    _ => 2,
-                };
-                let result = if is_thumb {
-                    self.ws_n[ws_idx] + self.ws_s[ws_idx] - 1
-                } else {
-                    self.ws_n[ws_idx] + 3 * self.ws_s[ws_idx] - 3
-                };
-                #[cfg(feature = "native-test")]
-                {
-                    static mut REFILL_COUNT: u32 = 0;
-                    unsafe {
-                        REFILL_COUNT += 1;
-                        if REFILL_COUNT <= 5 || REFILL_COUNT % 100000 == 0 {
-                            eprintln!("  BRANCH_REFILL[{}]: target=0x{:08X} thumb={} ws_n={} ws_s={} result={}",
-                                REFILL_COUNT, target, is_thumb, self.ws_n[ws_idx], self.ws_s[ws_idx], result);
-                        }
-                    }
-                }
-                result
-            }
-            _ => 0,
-        }
+    pub fn branch_refill(&self, _target: u32, _is_thumb: bool) -> u32 {
+        0
     }
 
     pub fn code_fetch_extra(&self, pc: u32, is_thumb: bool, is_branch: bool) -> u32 {
