@@ -209,7 +209,7 @@ impl Cpu {
             0xC => self.cpsr & Z_FLAG == 0 && (self.cpsr & N_FLAG != 0) == (self.cpsr & V_FLAG != 0),
             0xD => self.cpsr & Z_FLAG != 0 || (self.cpsr & N_FLAG != 0) != (self.cpsr & V_FLAG != 0),
             0xE => true,
-            0xF => true,
+            0xF => false,
             _ => false,
         }
     }

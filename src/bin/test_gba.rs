@@ -1,3 +1,16 @@
+const TRACE_SIZE: usize = 4096;
+
+struct TraceEntry {
+    pc: u32,
+    instr: u32,
+    cpsr: u32,
+    regs: [u32; 16],
+    thumb: bool,
+}
+
+static mut TRACE_BUF: [Option<TraceEntry>; TRACE_SIZE] = [const { None }; TRACE_SIZE];
+static mut TRACE_IDX: usize = 0;
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 4 {
@@ -35,12 +48,104 @@ fn main() {
 
         gba_emu::emu_load_rom(rom_data.len() as i32);
 
+        let mut bad_pc_detected = false;
+
         for f in 0..frames {
             if let Some(&keys) = key_events.get(&f) {
                 gba_emu::emu_set_keys(keys);
             }
 
-            gba_emu::emu_run_frame();
+            let gba = &mut *gba_emu::GBA;
+            let start_frame = gba.bus.frame_count;
+            while gba.bus.frame_count == start_frame {
+                if gba.bus.dma_active() {
+                    let dma_cycles = gba.bus.run_dma();
+                    gba.bus.tick(dma_cycles, &mut gba.cpu);
+                    continue;
+                }
+
+                if gba.bus.halted {
+                    let remaining = 1232u32.saturating_sub(gba.bus.scanline_cycles);
+                    let advance = if remaining > 0 { remaining } else { 1 };
+                    gba.bus.tick(advance, &mut gba.cpu);
+                    continue;
+                }
+
+                let pre_pc = if gba.cpu.pipeline_valid {
+                    if gba.cpu.in_thumb() {
+                        gba.cpu.regs[15].wrapping_sub(4)
+                    } else {
+                        gba.cpu.regs[15].wrapping_sub(8)
+                    }
+                } else {
+                    gba.cpu.regs[15]
+                };
+
+                let pre_cpsr = gba.cpu.cpsr;
+                let pre_thumb = gba.cpu.in_thumb();
+                let pre_instr = if gba.cpu.pipeline_valid {
+                    if pre_thumb {
+                        gba.bus.read16(pre_pc) as u32
+                    } else {
+                        gba.bus.read32(pre_pc)
+                    }
+                } else {
+                    0
+                };
+
+                let entry = TraceEntry {
+                    pc: pre_pc,
+                    instr: pre_instr,
+                    cpsr: pre_cpsr,
+                    regs: gba.cpu.regs,
+                    thumb: pre_thumb,
+                };
+                TRACE_BUF[TRACE_IDX % TRACE_SIZE] = Some(entry);
+                TRACE_IDX += 1;
+
+                let cycles = gba.cpu.step(&mut gba.bus);
+                gba.bus.tick(cycles, &mut gba.cpu);
+
+                let post_pc = if gba.cpu.pipeline_valid {
+                    if gba.cpu.in_thumb() { gba.cpu.regs[15].wrapping_sub(4) } else { gba.cpu.regs[15].wrapping_sub(8) }
+                } else {
+                    gba.cpu.regs[15]
+                };
+                let post_region = (post_pc >> 24) & 0xFF;
+                let in_ewram_arm = post_region == 0x02 && !gba.cpu.in_thumb();
+                if !bad_pc_detected && in_ewram_arm {
+                    bad_pc_detected = true;
+                    eprintln!("=== BAD PC DETECTED at frame {} ===", f);
+                    eprintln!("Post-step: PC=0x{:08X} CPSR=0x{:08X}", post_pc, gba.cpu.cpsr);
+                    let start = if TRACE_IDX > TRACE_SIZE { TRACE_IDX - TRACE_SIZE } else { 0 };
+                    let mut last_was_zero = false;
+                    let mut zero_count = 0u32;
+                    for ti in start..TRACE_IDX {
+                        if let Some(ref e) = TRACE_BUF[ti % TRACE_SIZE] {
+                            if e.instr == 0 && last_was_zero {
+                                zero_count += 1;
+                                if zero_count == 3 {
+                                    eprintln!("  ... (skipping zero-instr NOPs)");
+                                }
+                                if zero_count >= 3 && ti < TRACE_IDX - 10 {
+                                    continue;
+                                }
+                            } else {
+                                last_was_zero = e.instr == 0;
+                                zero_count = 0;
+                            }
+                            let mode = if e.thumb { "T" } else { "A" };
+                            eprintln!("  [{}] PC=0x{:08X} {} instr=0x{:08X} CPSR=0x{:08X} R0=0x{:08X} R1=0x{:08X} R2=0x{:08X} R3=0x{:08X} SP=0x{:08X} LR=0x{:08X} R15=0x{:08X}",
+                                ti, e.pc, mode, e.instr, e.cpsr, e.regs[0], e.regs[1], e.regs[2], e.regs[3], e.regs[13], e.regs[14], e.regs[15]);
+                        }
+                    }
+                    break;
+                }
+            }
+
+            if bad_pc_detected {
+                break;
+            }
 
             let fb = gba_emu::emu_framebuffer();
             let fb_slice = std::slice::from_raw_parts(fb, 240 * 160);
