@@ -274,6 +274,7 @@ impl Cpu {
 
     pub fn execute_arm(&mut self, bus: &mut Bus) -> u32 {
         let instr_addr = self.regs[15].wrapping_sub(8);
+        let stall = bus.pipeline_stall(instr_addr, false);
         bus.fetching_code = true;
         let instr = bus.read32(instr_addr);
         bus.fetching_code = false;
@@ -284,7 +285,9 @@ impl Cpu {
         let cond = (instr >> 28) & 0xF;
         if !self.check_condition(cond) {
             self.regs[15] = self.regs[15].wrapping_add(4);
-            return 1;
+            bus.prev_exec_cycles = 1 + stall;
+            bus.prev_was_branch = false;
+            return 1 + stall;
         }
 
         self.pipeline_valid = true;
@@ -301,11 +304,15 @@ impl Cpu {
             0
         };
 
-        cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra
+        let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + stall;
+        bus.prev_exec_cycles = total;
+        bus.prev_was_branch = !self.pipeline_valid;
+        total
     }
 
     pub fn execute_thumb(&mut self, bus: &mut Bus) -> u32 {
         let instr_addr = self.regs[15].wrapping_sub(4);
+        let stall = bus.pipeline_stall(instr_addr, true);
         bus.fetching_code = true;
         let instr = bus.read16(instr_addr) as u16;
         bus.fetching_code = false;
@@ -327,7 +334,9 @@ impl Cpu {
             0
         };
 
-        let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra;
+        let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + stall;
+        bus.prev_exec_cycles = total;
+        bus.prev_was_branch = !self.pipeline_valid;
 
         #[cfg(feature = "native-test")]
         {
