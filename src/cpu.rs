@@ -283,17 +283,20 @@ impl Cpu {
         let cond = (instr >> 28) & 0xF;
         if !self.check_condition(cond) {
             self.regs[15] = self.regs[15].wrapping_add(4);
-            return 1;
+            return 1 + bus.code_fetch_extra(instr_addr, false, false);
         }
 
         self.pipeline_valid = true;
         let cycles = crate::arm::execute(self, bus, instr);
 
-        if self.pipeline_valid {
+        let fetch_extra = if !self.pipeline_valid {
+            bus.code_fetch_extra(self.regs[15], false, true)
+        } else {
             self.regs[15] = self.regs[15].wrapping_add(4);
-        }
+            bus.code_fetch_extra(instr_addr, false, false)
+        };
 
-        cycles + bus.data_wait_cycles
+        cycles + bus.data_wait_cycles + fetch_extra
     }
 
     pub fn execute_thumb(&mut self, bus: &mut Bus) -> u32 {
@@ -307,11 +310,14 @@ impl Cpu {
         self.pipeline_valid = true;
         let cycles = crate::thumb::execute(self, bus, instr);
 
-        if self.pipeline_valid {
+        let fetch_extra = if !self.pipeline_valid {
+            bus.code_fetch_extra(self.regs[15], true, true)
+        } else {
             self.regs[15] = self.regs[15].wrapping_add(2);
-        }
+            bus.code_fetch_extra(instr_addr, true, false)
+        };
 
-        cycles + bus.data_wait_cycles
+        cycles + bus.data_wait_cycles + fetch_extra
     }
 
     pub fn set_nz(&mut self, val: u32) {
