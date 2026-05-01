@@ -285,7 +285,7 @@ impl Cpu {
         let cond = (instr >> 28) & 0xF;
         if !self.check_condition(cond) {
             self.regs[15] = self.regs[15].wrapping_add(4);
-            bus.prev_exec_cycles = 1 + stall;
+            bus.prev_exec_cycles = 1;
             bus.prev_was_branch = false;
             return 1 + stall;
         }
@@ -308,7 +308,7 @@ impl Cpu {
         };
 
         let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + refill + stall;
-        bus.prev_exec_cycles = total;
+        bus.prev_exec_cycles = total - stall;
         bus.prev_was_branch = !self.pipeline_valid;
         total
     }
@@ -341,7 +341,7 @@ impl Cpu {
         };
 
         let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + refill + stall;
-        bus.prev_exec_cycles = total;
+        bus.prev_exec_cycles = total - stall;
         bus.prev_was_branch = !self.pipeline_valid;
 
         #[cfg(feature = "native-test")]
