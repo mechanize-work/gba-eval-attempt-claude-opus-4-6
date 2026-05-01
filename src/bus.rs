@@ -117,8 +117,28 @@ impl Bus {
         self.ws_s[2] = 1 + S2_LUT[(w >> 10) & 1];
     }
 
-    fn add_data_wait(&mut self, _addr: u32, _size: u32) {
+    fn add_data_wait(&mut self, addr: u32, size: u32) {
+        if self.fetching_code {
+            return;
+        }
+        let region = (addr >> 24) & 0xF;
+        match region {
+            0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
+                let ws_idx = match region {
+                    0x08 | 0x09 => 0,
+                    0x0A | 0x0B => 1,
+                    _ => 2,
+                };
+                if size == 4 {
+                    self.data_wait_cycles += self.ws_n[ws_idx] + self.ws_s[ws_idx] - 1;
+                } else {
+                    self.data_wait_cycles += self.ws_n[ws_idx] - 1;
+                }
+            }
+            _ => {}
+        }
     }
+
 
     pub fn load_rom(&mut self, data: &[u8]) {
         self.rom = vec![0u8; data.len().max(1)];
