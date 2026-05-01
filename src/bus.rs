@@ -469,19 +469,15 @@ impl Bus {
     }
 
     fn add_write_wait(&mut self, addr: u32, size: u32) {
-        let region = (addr >> 24) & 0xF;
         #[cfg(feature = "native-test")]
-        if region == 0x02 {
-            self.debug_ewram_writes += 1;
-            if size == 4 { self.debug_ewram_writes32 += 1; }
-        }
-        if region == 0x02 {
-            if size == 4 {
-                self.write_wait_cycles += 5;
-            } else {
-                self.write_wait_cycles += 2;
+        {
+            let region = (addr >> 24) & 0xF;
+            if region == 0x02 {
+                self.debug_ewram_writes += 1;
+                if size == 4 { self.debug_ewram_writes32 += 1; }
             }
         }
+        let _ = (addr, size);
     }
 
     pub fn write32(&mut self, addr: u32, val: u32) {
