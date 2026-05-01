@@ -952,6 +952,7 @@ impl Bus {
         let region = (pc >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
+                if !self.waitcnt_written { return 0; }
                 if self.prefetch { return 0; }
                 if self.prev_was_branch { return 0; }
                 let ws_idx = match region {
@@ -998,6 +999,7 @@ impl Bus {
         let region = (target >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
+                if !self.waitcnt_written { return 0; }
                 if self.prefetch { return 0; }
                 let ws_idx = match region {
                     0x08 | 0x09 => 0,
