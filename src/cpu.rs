@@ -285,9 +285,10 @@ impl Cpu {
         let cond = (instr >> 28) & 0xF;
         if !self.check_condition(cond) {
             self.regs[15] = self.regs[15].wrapping_add(4);
+            let total = 1 + stall;
             bus.prev_exec_cycles = 1;
             bus.prev_was_branch = false;
-            return 1 + stall;
+            return total;
         }
 
         self.pipeline_valid = true;
@@ -295,7 +296,7 @@ impl Cpu {
 
         let (fetch_extra, refill) = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(4);
-            let fe = if bus.data_wait_cycles > 0 {
+            let fe = if bus.data_wait_cycles > 0 || bus.write_wait_cycles > 0 {
                 bus.code_fetch_extra(instr_addr, false, false)
             } else {
                 0
@@ -307,8 +308,9 @@ impl Cpu {
             (0, rf)
         };
 
-        let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + refill + stall;
-        bus.prev_exec_cycles = total;
+        let base = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + refill;
+        let total = base + stall;
+        bus.prev_exec_cycles = base;
         bus.prev_was_branch = !self.pipeline_valid;
         total
     }
@@ -328,7 +330,7 @@ impl Cpu {
 
         let (fetch_extra, refill) = if self.pipeline_valid {
             self.regs[15] = self.regs[15].wrapping_add(2);
-            let fe = if bus.data_wait_cycles > 0 {
+            let fe = if bus.data_wait_cycles > 0 || bus.write_wait_cycles > 0 {
                 bus.code_fetch_extra(instr_addr, true, false)
             } else {
                 0
@@ -340,8 +342,9 @@ impl Cpu {
             (0, rf)
         };
 
-        let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + refill + stall;
-        bus.prev_exec_cycles = total;
+        let base = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + refill;
+        let total = base + stall;
+        bus.prev_exec_cycles = base;
         bus.prev_was_branch = !self.pipeline_valid;
 
         total
