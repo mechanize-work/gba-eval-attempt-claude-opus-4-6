@@ -551,7 +551,7 @@ fn thumb_cond_branch(cpu: &mut Cpu, instr: u16) -> u32 {
     let offset = (instr & 0xFF) as i8 as i32 as u32;
     cpu.regs[15] = cpu.regs[15].wrapping_add(offset << 1);
     cpu.pipeline_valid = false;
-    3
+    2
 }
 
 fn thumb_swi(cpu: &mut Cpu, bus: &mut Bus, instr: u16) -> u32 {
