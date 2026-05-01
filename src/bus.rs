@@ -117,45 +117,7 @@ impl Bus {
         self.ws_s[2] = 1 + S2_LUT[(w >> 10) & 1];
     }
 
-    fn add_data_wait(&mut self, addr: u32, size: u32) {
-        if self.fetching_code {
-            return;
-        }
-        match (addr >> 24) & 0xF {
-            0x02 => {
-                self.data_wait_cycles += if size == 4 { 5 } else { 2 };
-            }
-            0x05 | 0x06 => {
-                if size == 4 {
-                    self.data_wait_cycles += 1;
-                }
-            }
-            0x08 | 0x09 => {
-                if size == 4 {
-                    self.data_wait_cycles += (self.ws_n[0] - 1) + (self.ws_s[0] - 1);
-                } else {
-                    self.data_wait_cycles += self.ws_n[0] - 1;
-                }
-            }
-            0x0A | 0x0B => {
-                if size == 4 {
-                    self.data_wait_cycles += (self.ws_n[1] - 1) + (self.ws_s[1] - 1);
-                } else {
-                    self.data_wait_cycles += self.ws_n[1] - 1;
-                }
-            }
-            0x0C | 0x0D => {
-                if size == 4 {
-                    self.data_wait_cycles += (self.ws_n[2] - 1) + (self.ws_s[2] - 1);
-                } else {
-                    self.data_wait_cycles += self.ws_n[2] - 1;
-                }
-            }
-            0x0E | 0x0F => {
-                self.data_wait_cycles += self.ws_n[2] - 1;
-            }
-            _ => {}
-        }
+    fn add_data_wait(&mut self, _addr: u32, _size: u32) {
     }
 
     pub fn load_rom(&mut self, data: &[u8]) {
@@ -704,6 +666,8 @@ impl Bus {
             let mut dst = c.internal_dst;
             let mut remaining = c.internal_count;
             let width = if is_32bit { 4u32 } else { 2 };
+
+
 
             while remaining > 0 {
                 if is_32bit {
