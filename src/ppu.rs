@@ -661,36 +661,36 @@ fn is_blend_target(bldcnt: u16, layer: u8, second: bool) -> bool {
 }
 
 fn alpha_blend(top: u32, bot: u32, eva: u32, evb: u32) -> u32 {
-    let r1 = top & 0xFF;
-    let g1 = (top >> 8) & 0xFF;
-    let b1 = (top >> 16) & 0xFF;
-    let r2 = bot & 0xFF;
-    let g2 = (bot >> 8) & 0xFF;
-    let b2 = (bot >> 16) & 0xFF;
-    let r = ((r1 * eva + r2 * evb) / 16).min(255);
-    let g = ((g1 * eva + g2 * evb) / 16).min(255);
-    let b = ((b1 * eva + b2 * evb) / 16).min(255);
-    0xFF000000 | (b << 16) | (g << 8) | r
+    let r1 = (top & 0xFF) >> 3;
+    let g1 = ((top >> 8) & 0xFF) >> 3;
+    let b1 = ((top >> 16) & 0xFF) >> 3;
+    let r2 = (bot & 0xFF) >> 3;
+    let g2 = ((bot >> 8) & 0xFF) >> 3;
+    let b2 = ((bot >> 16) & 0xFF) >> 3;
+    let r = ((r1 * eva + r2 * evb) / 16).min(31);
+    let g = ((g1 * eva + g2 * evb) / 16).min(31);
+    let b = ((b1 * eva + b2 * evb) / 16).min(31);
+    0xFF000000 | ((b << 3 | b >> 2) << 16) | ((g << 3 | g >> 2) << 8) | (r << 3 | r >> 2)
 }
 
 fn brightness_increase(color: u32, evy: u32) -> u32 {
-    let r = color & 0xFF;
-    let g = (color >> 8) & 0xFF;
-    let b = (color >> 16) & 0xFF;
-    let r = r + ((255 - r) * evy / 16);
-    let g = g + ((255 - g) * evy / 16);
-    let b = b + ((255 - b) * evy / 16);
-    0xFF000000 | (b.min(255) << 16) | (g.min(255) << 8) | r.min(255)
+    let r = (color & 0xFF) >> 3;
+    let g = ((color >> 8) & 0xFF) >> 3;
+    let b = ((color >> 16) & 0xFF) >> 3;
+    let r = (r + (31 - r) * evy / 16).min(31);
+    let g = (g + (31 - g) * evy / 16).min(31);
+    let b = (b + (31 - b) * evy / 16).min(31);
+    0xFF000000 | ((b << 3 | b >> 2) << 16) | ((g << 3 | g >> 2) << 8) | (r << 3 | r >> 2)
 }
 
 fn brightness_decrease(color: u32, evy: u32) -> u32 {
-    let r = color & 0xFF;
-    let g = (color >> 8) & 0xFF;
-    let b = (color >> 16) & 0xFF;
-    let r = r - (r * evy / 16);
-    let g = g - (g * evy / 16);
-    let b = b - (b * evy / 16);
-    0xFF000000 | (b << 16) | (g << 8) | r
+    let r = (color & 0xFF) >> 3;
+    let g = ((color >> 8) & 0xFF) >> 3;
+    let b = ((color >> 16) & 0xFF) >> 3;
+    let r = r - r * evy / 16;
+    let g = g - g * evy / 16;
+    let b = b - b * evy / 16;
+    0xFF000000 | ((b << 3 | b >> 2) << 16) | ((g << 3 | g >> 2) << 8) | (r << 3 | r >> 2)
 }
 
 fn sign_extend_28(val: u32) -> i32 {
