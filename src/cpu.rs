@@ -308,7 +308,7 @@ impl Cpu {
         };
 
         let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + refill + stall;
-        bus.prev_exec_cycles = total - stall;
+        bus.prev_exec_cycles = total;
         bus.prev_was_branch = !self.pipeline_valid;
         total
     }
@@ -341,7 +341,7 @@ impl Cpu {
         };
 
         let total = cycles + bus.data_wait_cycles + bus.write_wait_cycles + fetch_extra + refill + stall;
-        bus.prev_exec_cycles = total - stall;
+        bus.prev_exec_cycles = total;
         bus.prev_was_branch = !self.pipeline_valid;
 
         #[cfg(feature = "native-test")]
