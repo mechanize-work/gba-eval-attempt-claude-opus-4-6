@@ -70,6 +70,17 @@ impl Ppu {
     }
 
     pub fn render_scanline(&mut self, line: u16, palette: &[u8], vram: &[u8], oam: &[u8], framebuffer: &mut [u32]) {
+        #[cfg(feature = "native-test")]
+        {
+            static mut RENDER_TRACE_COUNT: u32 = 0;
+            unsafe {
+                RENDER_TRACE_COUNT += 1;
+                if (line == 82 || line == 83 || line == 84) && RENDER_TRACE_COUNT > 600 && RENDER_TRACE_COUNT < 1400 {
+                    eprintln!("    render_scanline line={} dispcnt=0x{:04X} forced_blank={} count={}",
+                        line, self.dispcnt, self.dispcnt & (1 << 7) != 0, RENDER_TRACE_COUNT);
+                }
+            }
+        }
         let forced_blank = self.dispcnt & (1 << 7) != 0;
         if forced_blank {
             let offset = line as usize * 240;

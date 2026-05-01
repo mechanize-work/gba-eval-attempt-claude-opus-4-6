@@ -97,11 +97,11 @@ pub extern "C" fn emu_load_rom(len: i32) -> i32 {
         eprintln!("  BIOS stub completed in {} cycles ({} steps), scanline={}, frame={}",
             bios_cycles, steps, gba.bus.current_scanline, gba.bus.frame_count);
 
-        // Advance timing to match oracle BIOS boot duration (~767,488 cycles)
-        // The oracle uses a full BIOS that takes ~1499 audio samples worth of
-        // cycles (1499 * 512 = 767,488). Our stub completes in ~28 cycles.
-        // Pad the difference so game starts at the same scanline position.
-        let target_boot_cycles = 767_488u32;
+        // Advance timing to match oracle BIOS boot duration (768,000 cycles)
+        // The oracle produces 2048 audio samples for the first frame and 9729
+        // total for 15 frames, proving boot = 768,000 cycles and each run_frame
+        // is exactly 280,896 cycles (228 scanlines × 1232 cycles).
+        let target_boot_cycles = 768_000u32;
         if bios_cycles < target_boot_cycles {
             let remaining = target_boot_cycles - bios_cycles;
             gba.bus.tick(remaining, &mut gba.cpu);
@@ -194,27 +194,29 @@ pub extern "C" fn emu_audio_rate() -> i32 {
 
 impl Gba {
     pub fn run_frame(&mut self) {
-        let start_frame = self.bus.frame_count;
-        while self.bus.frame_count == start_frame {
-            self.step();
+        const CYCLES_PER_FRAME: u32 = 228 * 1232;
+        let mut elapsed = 0u32;
+        while elapsed < CYCLES_PER_FRAME {
+            elapsed += self.step();
         }
     }
 
-    fn step(&mut self) {
+    fn step(&mut self) -> u32 {
         if self.bus.dma_active() {
             let dma_cycles = self.bus.run_dma();
             self.bus.tick(dma_cycles, &mut self.cpu);
-            return;
+            return dma_cycles;
         }
 
         if self.bus.halted {
             let remaining = 1232u32.saturating_sub(self.bus.scanline_cycles);
             let advance = if remaining > 0 { remaining } else { 1 };
             self.bus.tick(advance, &mut self.cpu);
-            return;
+            return advance;
         }
 
         let cycles = self.cpu.step(&mut self.bus);
         self.bus.tick(cycles, &mut self.cpu);
+        cycles
     }
 }
