@@ -203,11 +203,8 @@ impl Bus {
                     self.debug_ewram_reads += 1;
                     if size == 4 { self.debug_ewram_reads32 += 1; }
                 }
-                if size == 4 {
-                    self.data_wait_cycles += 14;
-                } else {
-                    self.data_wait_cycles += 6;
-                }
+                // EWRAM: no additional data wait
+                // (baseline: timing compensated elsewhere)
                 self.last_rom_data_addr = 0xFFFF_FFFF;
             }
             0x03 => {
