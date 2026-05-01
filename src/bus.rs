@@ -862,8 +862,32 @@ impl Bus {
         self.ppu.dispstat &= !0x2;
     }
 
-    pub fn pipeline_stall(&self, _pc: u32, _is_thumb: bool) -> u32 {
-        0
+    pub fn pipeline_stall(&self, pc: u32, is_thumb: bool) -> u32 {
+        if self.prev_was_branch {
+            return 0;
+        }
+        let region = (pc >> 24) & 0xF;
+        match region {
+            0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
+                if self.prefetch { return 0; }
+                let ws_idx = match region {
+                    0x08 | 0x09 => 0,
+                    0x0A | 0x0B => 1,
+                    _ => 2,
+                };
+                let fetch_time = if is_thumb {
+                    self.ws_s[ws_idx]
+                } else {
+                    self.ws_s[ws_idx] + self.ws_s[ws_idx]
+                };
+                if self.prev_exec_cycles >= fetch_time {
+                    0
+                } else {
+                    fetch_time - self.prev_exec_cycles
+                }
+            }
+            _ => 0,
+        }
     }
 
     pub fn rom_seq_fetch_extra(&self, pc: u32, is_thumb: bool) -> u32 {
