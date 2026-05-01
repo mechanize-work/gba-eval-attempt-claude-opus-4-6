@@ -929,7 +929,6 @@ impl Bus {
     }
 
     pub fn pipeline_stall(&self, pc: u32, is_thumb: bool) -> u32 {
-        if !self.pipeline_disrupted { return 0; }
         let region = (pc >> 24) & 0xF;
         match region {
             0x08 | 0x09 | 0x0A | 0x0B | 0x0C | 0x0D => {
