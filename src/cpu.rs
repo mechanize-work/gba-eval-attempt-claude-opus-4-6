@@ -295,7 +295,7 @@ impl Cpu {
         self.pipeline_valid = true;
         let cycles = crate::arm::execute(self, bus, instr);
 
-        if bus.data_wait_cycles > 0 || bus.rom_data_accessed {
+        if bus.rom_data_accessed {
             bus.pipeline_disrupted = true;
         }
 
@@ -343,7 +343,7 @@ impl Cpu {
         self.pipeline_valid = true;
         let cycles = crate::thumb::execute(self, bus, instr);
 
-        if bus.data_wait_cycles > 0 || bus.rom_data_accessed {
+        if bus.rom_data_accessed {
             bus.pipeline_disrupted = true;
         }
 
