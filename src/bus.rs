@@ -215,6 +215,12 @@ impl Bus {
                     self.debug_ewram_reads += 1;
                     if size == 4 { self.debug_ewram_reads32 += 1; }
                 }
+                if size == 4 {
+                    self.data_wait_cycles += 5;
+                } else {
+                    self.data_wait_cycles += 2;
+                }
+                self.rom_data_accessed = true;
                 self.last_rom_data_addr = 0xFFFF_FFFF;
             }
             0x03 => {
@@ -416,7 +422,7 @@ impl Bus {
     }
 
     pub fn write8(&mut self, addr: u32, val: u8) {
-        self.add_data_wait(addr, 1);
+        self.add_write_wait(addr, 1);
         let region = (addr >> 24) & 0xFF;
         match region {
             0x02 => self.ewram[(addr & 0x3FFFF) as usize] = val,
@@ -441,7 +447,6 @@ impl Bus {
 
     pub fn write16(&mut self, addr: u32, val: u16) {
         let addr = addr & !1;
-        self.add_data_wait(addr, 2);
         self.add_write_wait(addr, 2);
         let region = (addr >> 24) & 0xFF;
         let bytes = val.to_le_bytes();
@@ -482,19 +487,24 @@ impl Bus {
 
     fn add_write_wait(&mut self, addr: u32, size: u32) {
         let region = (addr >> 24) & 0xF;
-        #[cfg(feature = "native-test")]
-        {
-            if region == 0x02 {
+        if region == 0x02 {
+            #[cfg(feature = "native-test")]
+            {
                 self.debug_ewram_writes += 1;
                 self.debug_cumulative_ewram_w += 1;
                 if size == 4 { self.debug_ewram_writes32 += 1; }
             }
+            if size == 4 {
+                self.write_wait_cycles += 5;
+            } else {
+                self.write_wait_cycles += 2;
+            }
+            self.last_rom_data_addr = 0xFFFF_FFFF;
         }
     }
 
     pub fn write32(&mut self, addr: u32, val: u32) {
         let addr = addr & !3;
-        self.add_data_wait(addr, 4);
         self.add_write_wait(addr, 4);
         let region = (addr >> 24) & 0xFF;
         let bytes = val.to_le_bytes();
